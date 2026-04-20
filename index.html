@@ -10,6 +10,7 @@
         background: #0C0C18;
         display: flex;
         justify-content: center;
+        align-items: flex-start;
         color: #E8ECFF;
         font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
         min-height: 100vh;
@@ -30,13 +31,22 @@
         margin-bottom: 18px;
       }
       #game {
-        display: inline-block;
+        display: block;
+        width: 680px;
+        height: 420px;
+        max-width: 100%;
+        margin: 0 auto;
         border: 1px solid #2B3150;
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+        touch-action: none;
       }
       canvas { display: block; }
+      @media (max-width: 768px) {
+        body { padding: 12px; }
+        .subtitle { margin-bottom: 12px; }
+      }
     </style>
   </head>
   <body>
