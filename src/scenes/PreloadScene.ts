@@ -21,10 +21,10 @@ export class PreloadScene extends Phaser.Scene {
     tryLoad('bgm_game',        'sounds/bgm_game.ogg');
     tryLoad('bgm_title',       'sounds/bgm_title.ogg');
     tryLoad('bgm_result',      'sounds/bgm_result.ogg');
-    tryLoad('se_valve_open',   'sounds/se_valve_open.wav');
-    tryLoad('se_valve_close',  'sounds/se_valve_close.wav');
-    tryLoad('se_ball_pass',    'sounds/se_ball_pass.wav');
-    tryLoad('se_warning',      'sounds/se_warning.wav');
+    tryLoad('se_valve_open',   'sounds/se_valve_open.mp3');
+    tryLoad('se_valve_close',  'sounds/se_valve_close.mp3');
+    tryLoad('se_ball_pass',    'sounds/se_ball_pass.mp3');
+    tryLoad('se_warning',      'sounds/se_warning.mp3');
   }
 
   create() {
