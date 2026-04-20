@@ -265,15 +265,19 @@ export class TitleScene extends Phaser.Scene {
   private buildBriefingOverlay() {
     const cx = GAME_W / 2;
     const cy = GAME_H / 2;
+    const panelW = 520;
+    const panelH = 304;
+    const panelX = cx - panelW / 2;
+    const panelY = cy - panelH / 2;
 
     const bg = this.add.rectangle(0, 0, GAME_W, GAME_H, COLOR_BG, 0.92).setOrigin(0, 0);
     const panel = this.add.graphics();
     panel.fillStyle(PANEL_FILL, 1);
-    panel.fillRect(cx - 260, cy - 140, 520, 280);
+    panel.fillRect(panelX, panelY, panelW, panelH);
     panel.lineStyle(1, COLOR_PANEL_BORDER);
-    panel.strokeRect(cx - 260, cy - 140, 520, 280);
+    panel.strokeRect(panelX, panelY, panelW, panelH);
 
-    const body = this.add.text(cx - 232, cy - 118,
+    const body = this.add.text(panelX + 28, panelY + 22,
 `OPERATOR BRIEFING ─────────────────────────
 
 OBJECTIVE
@@ -290,11 +294,12 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
       fontFamily: 'monospace',
       fontSize: '11px',
       color: TEXT_PRIMARY,
-      lineSpacing: 6,
+      lineSpacing: 4,
     });
 
     const closeBg = this.add.graphics();
-    const closeText = this.add.text(cx, cy + 108, '[ CLOSE ] (ESC)', {
+    const closeY = panelY + panelH - 28;
+    const closeText = this.add.text(cx, closeY, '[ CLOSE ] (ESC)', {
       fontFamily: 'monospace',
       fontSize: '12px',
       color: '#4A6FA8',
@@ -304,16 +309,16 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
     const closeDraw = (hover: boolean) => {
       closeBg.clear();
       closeBg.lineStyle(1, hover ? COLOR_HOLE : PANEL_BORDER_ACTIVE);
-      closeBg.strokeRect(cx - closeW / 2, cy + 108 - closeH / 2, closeW, closeH);
+      closeBg.strokeRect(cx - closeW / 2, closeY - closeH / 2, closeW, closeH);
       if (hover) {
         closeBg.lineStyle(1, COLOR_HOLE, 0.3);
-        closeBg.strokeRect(cx - closeW / 2 - 2, cy + 108 - closeH / 2 - 2, closeW + 4, closeH + 4);
+        closeBg.strokeRect(cx - closeW / 2 - 2, closeY - closeH / 2 - 2, closeW + 4, closeH + 4);
       }
       closeText.setColor(hover ? '#00E5CC' : '#4A6FA8');
     };
     closeDraw(false);
 
-    const closeZone = this.add.zone(cx, cy + 108, closeW, closeH).setInteractive({ useHandCursor: true });
+    const closeZone = this.add.zone(cx, closeY, closeW, closeH).setInteractive({ useHandCursor: true });
     closeZone.on('pointerover', () => closeDraw(true));
     closeZone.on('pointerout', () => closeDraw(false));
     closeZone.on('pointerup', () => this.hideBriefingOverlay());

@@ -51,7 +51,6 @@ const config: Phaser.Types.Core.GameConfig = {
   height: GAME_H,
   backgroundColor: COLOR_BG,
   parent: 'game',
-  resolution: Math.max(window.devicePixelRatio || 1, 2),
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
