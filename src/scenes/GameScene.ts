@@ -27,6 +27,11 @@ export class GameScene extends Phaser.Scene {
   private warningSounded = false;
   private vignette!: Phaser.GameObjects.Graphics;
   private bgm?: Phaser.Sound.BaseSound;
+  private valveOpenMs = 0;
+  private hotSorted = 0;
+  private coldSorted = 0;
+  private currentStreak = 0;
+  private maxStreak = 0;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -39,6 +44,11 @@ export class GameScene extends Phaser.Scene {
     this.prevHoleOpen = false;
     this.vignetteStarted = false;
     this.warningSounded = false;
+    this.valveOpenMs = 0;
+    this.hotSorted = 0;
+    this.coldSorted = 0;
+    this.currentStreak = 0;
+    this.maxStreak = 0;
 
     // dot grid background
     const grid = this.add.graphics().setDepth(-1);
@@ -143,6 +153,9 @@ export class GameScene extends Phaser.Scene {
     if (!holeOpen && this.prevHoleOpen) {
       tryPlay(this, 'se_valve_close', { volume: 0.5 });
     }
+    if (holeOpen) {
+      this.valveOpenMs += delta;
+    }
     this.prevHoleOpen = holeOpen;
 
     this.partition.update(holeOpen, holeY);
@@ -153,6 +166,12 @@ export class GameScene extends Phaser.Scene {
     // pass-through flash + SFX
     for (const ball of this.balls) {
       if (ball.justPassed) {
+        if (ball.isCorrectSide()) {
+          this.currentStreak++;
+          this.maxStreak = Math.max(this.maxStreak, this.currentStreak);
+        } else {
+          this.currentStreak = 0;
+        }
         tryPlay(this, 'se_ball_pass', { volume: 0.4 });
         const flash = this.add.arc(ball.x, ball.y, BALL_RADIUS * 2.5, 0, 360, false, 0xFFFFFF);
         flash.setAlpha(0.8);
@@ -176,6 +195,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     const { cold, hot } = this.countSorted();
+    this.coldSorted = cold;
+    this.hotSorted = hot;
     this.hud.update(this.timeLeft, cold, hot, this.balls.length, holeOpen);
   }
 
@@ -197,6 +218,10 @@ export class GameScene extends Phaser.Scene {
     this.scene.start('ResultScene', {
       sorted: cold + hot,
       total: this.balls.length,
+      hotSorted: this.hotSorted,
+      coldSorted: this.coldSorted,
+      valveOpenMs: this.valveOpenMs,
+      maxStreak: this.maxStreak,
     });
   }
 }
