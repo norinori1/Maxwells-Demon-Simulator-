@@ -6,6 +6,8 @@ const BEST_KEY = 'mxd_best_pct';
 const PANEL_FILL = 0x0E1A2E;
 const PANEL_BORDER_ACTIVE = 0x1C2E44;
 const SEP = '─'.repeat(58);
+const TELEMETRY_BAR_H = 5;
+type AlphaTarget = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.AlphaSingle;
 
 interface ResultData {
   sorted?: number;
@@ -71,7 +73,7 @@ export class ResultScene extends Phaser.Scene {
       this.saveBest(pct);
     }
 
-    const elements: Phaser.GameObjects.GameObject[] = [];
+    const elements: AlphaTarget[] = [];
 
     const bg = this.add.graphics();
     bg.fillStyle(0x080D1A, 0);
@@ -228,9 +230,9 @@ export class ResultScene extends Phaser.Scene {
         this.tweenCounter(0, telemetryTargets[i] * 100, 500, delay, (v) => {
           bar.clear();
           bar.fillStyle(0x1C2E44);
-          bar.fillRect(telemetryBarStartX, telemetryY + 17 + i * 20, telemetryBarW, 5);
+          bar.fillRect(telemetryBarStartX, telemetryY + 17 + i * 20, telemetryBarW, TELEMETRY_BAR_H);
           bar.fillStyle(0x00E5CC);
-          bar.fillRect(telemetryBarStartX, telemetryY + 17 + i * 20, telemetryBarW * (v / 100), 5);
+          bar.fillRect(telemetryBarStartX, telemetryY + 17 + i * 20, telemetryBarW * (v / 100), TELEMETRY_BAR_H);
           if (i === 2) {
             txt.setText(`${telemetryRows[i]}   ${Math.round(v)}%`);
           }
@@ -247,11 +249,27 @@ export class ResultScene extends Phaser.Scene {
       }
     });
 
-    this.bindSkip(elements, pct, accuracyBar, accuracyLabel, barX, barY, barW, barH, telemetryBars, telemetryTargets, telemetryBarStartX, telemetryY, isNewBest, bestText);
+    this.bindSkip(
+      elements,
+      pct,
+      accuracyBar,
+      accuracyLabel,
+      barX,
+      barY,
+      barW,
+      barH,
+      telemetryBars,
+      telemetryTargets,
+      telemetryBarStartX,
+      telemetryY,
+      telemetryBarW,
+      isNewBest,
+      bestText,
+    );
   }
 
   private bindSkip(
-    elements: Phaser.GameObjects.GameObject[],
+    elements: AlphaTarget[],
     pct: number,
     accuracyBar: Phaser.GameObjects.Graphics,
     accuracyLabel: Phaser.GameObjects.Text,
@@ -263,6 +281,7 @@ export class ResultScene extends Phaser.Scene {
     telemetryTargets: number[],
     telemetryBarStartX: number,
     telemetryY: number,
+    telemetryBarW: number,
     isNewBest: boolean,
     bestText: Phaser.GameObjects.Text,
   ) {
@@ -284,9 +303,9 @@ export class ResultScene extends Phaser.Scene {
         bar.clear();
         if (i < 3) {
           bar.fillStyle(0x1C2E44);
-          bar.fillRect(telemetryBarStartX, telemetryY + 17 + i * 20, 92, 5);
+          bar.fillRect(telemetryBarStartX, telemetryY + 17 + i * 20, telemetryBarW, TELEMETRY_BAR_H);
           bar.fillStyle(0x00E5CC);
-          bar.fillRect(telemetryBarStartX, telemetryY + 17 + i * 20, 92 * telemetryTargets[i], 5);
+          bar.fillRect(telemetryBarStartX, telemetryY + 17 + i * 20, telemetryBarW * telemetryTargets[i], TELEMETRY_BAR_H);
         }
       }
       if (isNewBest) {
@@ -301,7 +320,7 @@ export class ResultScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ENTER', () => this.startGame());
     this.input.keyboard?.on('keydown-SPACE', () => this.startGame());
     this.input.keyboard?.on('keydown-T', () => this.startTitle());
-    this.input.keyboard?.on('keydown-ESC', () => this.startTitle());
+    this.input.keyboard?.on('keydown-ESCAPE', () => this.startTitle());
   }
 
   private createButton(
@@ -311,7 +330,7 @@ export class ResultScene extends Phaser.Scene {
     h: number,
     text: string,
     onClick: () => void,
-  ): Phaser.GameObjects.GameObject[] {
+  ): AlphaTarget[] {
     const bg = this.add.graphics().setAlpha(0);
     const label = this.add.text(cx, cy, text, {
       fontSize: '14px', color: '#4A6FA8', fontFamily: 'monospace',
@@ -327,11 +346,11 @@ export class ResultScene extends Phaser.Scene {
       label.setColor(hover ? '#00E5CC' : '#4A6FA8');
     };
     draw(false);
-    const zone = this.add.zone(cx, cy, w, h).setInteractive({ useHandCursor: true }).setAlpha(0);
+    const zone = this.add.zone(cx, cy, w, h).setInteractive({ useHandCursor: true });
     zone.on('pointerover', () => draw(true));
     zone.on('pointerout', () => draw(false));
     zone.on('pointerup', () => onClick());
-    return [bg, label, zone];
+    return [bg, label];
   }
 
   private startGame() {
@@ -370,7 +389,7 @@ export class ResultScene extends Phaser.Scene {
   }
 
   private tween(
-    targets: Phaser.Types.Tweens.TweenTarget,
+    targets: unknown,
     values: Record<string, unknown>,
     duration: number,
     delay = 0,

@@ -13,6 +13,7 @@ const BOOT_TOTAL_MS = 1200;
 const CTA_W = 220;
 const CTA_H = 36;
 const CTA2_H = 32;
+type AlphaTarget = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.AlphaSingle;
 
 function tryPlay(scene: Phaser.Scene, key: string, config?: Phaser.Types.Sound.SoundConfig) {
   if (scene.cache.audio.has(key)) {
@@ -32,13 +33,17 @@ export class TitleScene extends Phaser.Scene {
   private diagnosticsValueTexts: Phaser.GameObjects.Text[] = [];
   private diagnosticsTargets = [72, 61, 100];
   private diagnosticsBarMax = [160, 160, 160];
+  private diagnosticsBarX = 0;
+  private diagnosticsBarY = 0;
+  private diagnosticsRowGap = 18;
+  private diagnosticsBarHeight = 8;
 
   private statusText!: Phaser.GameObjects.Text;
   private footerRight!: Phaser.GameObjects.Text;
 
   private bootLog!: Phaser.GameObjects.Text;
-  private titleElements: Phaser.GameObjects.GameObject[] = [];
-  private ctaElements: Phaser.GameObjects.GameObject[] = [];
+  private titleElements: AlphaTarget[] = [];
+  private ctaElements: AlphaTarget[] = [];
 
   private briefingLayer!: Phaser.GameObjects.Container;
 
@@ -134,7 +139,7 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(1, 0);
     this.titleElements.push(this.footerRight);
 
-    this.createDiagnosticsPanel(cx, cy);
+    this.createDiagnosticsPanel(cy);
 
     this.bootLog = this.add.text(cx, cy, 'SYSTEM BOOT...', {
       fontFamily: 'monospace',
@@ -150,7 +155,7 @@ export class TitleScene extends Phaser.Scene {
     }
   }
 
-  private createDiagnosticsPanel(cx: number, cy: number) {
+  private createDiagnosticsPanel(cy: number) {
     const panelX = 40;
     const panelY = cy + 130;
     const panelW = GAME_W - 80;
@@ -180,8 +185,10 @@ export class TitleScene extends Phaser.Scene {
     this.titleElements.push(panel, panelTitle);
 
     const baseY = panelY + 14;
+    this.diagnosticsBarX = panelX + 156;
+    this.diagnosticsBarY = baseY + 3;
     for (let i = 0; i < labels.length; i++) {
-      const y = baseY + i * 18;
+      const y = baseY + i * this.diagnosticsRowGap;
       const row = this.add.text(panelX + 14, y, labels[i], {
         fontFamily: 'monospace',
         fontSize: '11px',
@@ -189,7 +196,7 @@ export class TitleScene extends Phaser.Scene {
       });
       const barBg = this.add.graphics();
       barBg.fillStyle(0x1C2E44, 1);
-      barBg.fillRect(panelX + 156, y + 3, this.diagnosticsBarMax[i], 8);
+      barBg.fillRect(this.diagnosticsBarX, y + 3, this.diagnosticsBarMax[i], this.diagnosticsBarHeight);
       const barFill = this.add.graphics();
       const value = this.add.text(panelX + 324, y, i < 2 ? '0%  ---' : 'OFFLINE', {
         fontFamily: 'monospace',
@@ -252,7 +259,7 @@ export class TitleScene extends Phaser.Scene {
     });
 
     this.titleElements.push(btnBg, btnText);
-    this.ctaElements.push(btnBg, btnText, zone);
+    this.ctaElements.push(btnBg, btnText);
   }
 
   private buildBriefingOverlay() {
@@ -350,7 +357,12 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
         const bar = this.diagnosticsFillBars[i];
         bar.clear();
         bar.fillStyle(COLOR_HOLE, 1);
-        bar.fillRect(196, 347 + i * 18, maxW * (pct / 100), 8);
+        bar.fillRect(
+          this.diagnosticsBarX,
+          this.diagnosticsBarY + i * this.diagnosticsRowGap,
+          maxW * (pct / 100),
+          this.diagnosticsBarHeight,
+        );
         if (i < 2) {
           this.diagnosticsValueTexts[i].setText(`${pct}%  ${statuses[i]}`).setColor(pct > 0 ? '#00E5CC' : TEXT_SECONDARY);
         } else {
@@ -416,7 +428,12 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
       const maxW = this.diagnosticsBarMax[i];
       bar.clear();
       bar.fillStyle(COLOR_HOLE, 1);
-      bar.fillRect(196, 347 + i * 18, maxW * (target / 100), 8);
+      bar.fillRect(
+        this.diagnosticsBarX,
+        this.diagnosticsBarY + i * this.diagnosticsRowGap,
+        maxW * (target / 100),
+        this.diagnosticsBarHeight,
+      );
       if (i < 2) {
         this.diagnosticsValueTexts[i].setText(`${target}%  ${statuses[i]}`).setColor('#00E5CC');
       } else {
@@ -469,7 +486,7 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
   }
 
   private tween(
-    targets: Phaser.Types.Tweens.TweenTarget,
+    targets: unknown,
     values: Record<string, unknown>,
     duration: number,
     delay = 0,
