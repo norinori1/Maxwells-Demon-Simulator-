@@ -15,6 +15,7 @@ export class HUD {
   private barLabel: Phaser.GameObjects.Text;
   private coldLabel: Phaser.GameObjects.Text;
   private hotLabel: Phaser.GameObjects.Text;
+  private controlHintText: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
     const uiY = GAME_H - UI_H;
@@ -34,6 +35,12 @@ export class HUD {
     this.hotLabel = scene.add.text(GAME_W * 0.75, 8, 'HOT →', {
       fontSize: '13px',
       color: '#FF7744',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5, 0);
+
+    this.controlHintText = scene.add.text(GAME_W / 2, 24, 'HOLE: CLOSED', {
+      fontSize: '11px',
+      color: '#8FA4D8',
       fontFamily: 'monospace',
     }).setOrigin(0.5, 0);
 
@@ -72,7 +79,13 @@ export class HUD {
     }).setOrigin(0.5, 0.5);
   }
 
-  update(timeLeft: number, coldSorted: number, hotSorted: number, total: number) {
+  update(
+    timeLeft: number,
+    coldSorted: number,
+    hotSorted: number,
+    total: number,
+    holeOpen: boolean,
+  ) {
     // timer
     const t = Math.max(0, timeLeft);
     this.timerText.setText(t.toFixed(1));
@@ -81,6 +94,9 @@ export class HUD {
     // counts
     this.coldCountText.setText(`COLD: ${coldSorted}`);
     this.hotCountText.setText(`HOT: ${hotSorted}`);
+
+    this.controlHintText.setText(holeOpen ? 'HOLE: OPEN' : 'HOLE: CLOSED');
+    this.controlHintText.setColor(holeOpen ? '#1AC878' : '#8FA4D8');
 
     // bar
     const sorted = coldSorted + hotSorted;
@@ -108,5 +124,6 @@ export class HUD {
     this.barLabel.destroy();
     this.coldLabel.destroy();
     this.hotLabel.destroy();
+    this.controlHintText.destroy();
   }
 }

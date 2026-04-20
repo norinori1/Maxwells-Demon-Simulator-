@@ -79,7 +79,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const { cold, hot } = this.countSorted();
-    this.hud.update(this.timeLeft, cold, hot, this.balls.length);
+    this.hud.update(this.timeLeft, cold, hot, this.balls.length, holeOpen);
   }
 
   private countSorted() {
