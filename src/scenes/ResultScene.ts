@@ -23,6 +23,10 @@ export class ResultScene extends Phaser.Scene {
     const pct = total > 0 ? Math.round((sorted / total) * 100) : 0;
     const { grade, color, desc } = getGrade(pct);
 
+    if (this.cache.audio.has('bgm_result')) {
+      this.sound.add('bgm_result', { loop: true, volume: 0.45 }).play();
+    }
+
     const cx = GAME_W / 2;
     const cy = GAME_H / 2;
     const SEP = '─'.repeat(38);
@@ -106,10 +110,10 @@ export class ResultScene extends Phaser.Scene {
     const zone = this.add.zone(cx, btnY + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true });
     zone.on('pointerover', () => { drawBtn(true); btnText.setColor('#00E5CC'); });
     zone.on('pointerout',  () => { drawBtn(false); btnText.setColor('#4A6FA8'); });
-    zone.on('pointerup',   () => { this.scene.start('GameScene'); });
+    zone.on('pointerup',   () => { this.sound.stopAll(); this.scene.start('GameScene'); });
 
-    this.input.keyboard?.once('keydown-ENTER', () => this.scene.start('GameScene'));
-    this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('GameScene'));
+    this.input.keyboard?.once('keydown-ENTER', () => { this.sound.stopAll(); this.scene.start('GameScene'); });
+    this.input.keyboard?.once('keydown-SPACE', () => { this.sound.stopAll(); this.scene.start('GameScene'); });
 
     // staggered tween sequence
     this.tweens.add({ targets: [header, subheader], alpha: 1, duration: 200, delay: 100 });
