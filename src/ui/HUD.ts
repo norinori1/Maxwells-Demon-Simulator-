@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import { GAME_W, GAME_H, UI_H } from '../config';
 
 const BAR_X = 200;
-const BAR_Y = GAME_H - UI_H + 14;
+const BAR_Y = GAME_H - UI_H + 24;
 const BAR_W = GAME_W - 400;
-const BAR_H = 12;
+const BAR_H = 10;
 
 export class HUD {
   private scene: Phaser.Scene;
@@ -54,21 +54,21 @@ export class HUD {
     }).setOrigin(0.5, 0);
 
     // timer
-    this.timerText = scene.add.text(GAME_W / 2, this.uiY + 12, '60.0', {
-      fontSize: '18px',
+    this.timerText = scene.add.text(GAME_W / 2, this.uiY + 8, '60.0', {
+      fontSize: '14px',
       color: '#FFFFFF',
       fontFamily: 'monospace',
     }).setOrigin(0.5, 0);
 
     // cold count
-    this.coldCountText = scene.add.text(20, this.uiY + 12, 'COLD: 0', {
+    this.coldCountText = scene.add.text(20, this.uiY + 8, 'COLD: 0', {
       fontSize: '13px',
       color: '#00BFFF',
       fontFamily: 'monospace',
     }).setOrigin(0, 0);
 
     // hot count
-    this.hotCountText = scene.add.text(GAME_W - 20, this.uiY + 12, 'HOT: 0', {
+    this.hotCountText = scene.add.text(GAME_W - 20, this.uiY + 8, 'HOT: 0', {
       fontSize: '13px',
       color: '#FF6B35',
       fontFamily: 'monospace',
@@ -146,11 +146,11 @@ export class HUD {
     const half = Math.max(1, total / 2);
     this.coldBar.clear();
     this.coldBar.fillStyle(0x00BFFF);
-    this.coldBar.fillRect(20, this.uiY + 32, Math.min(1, coldSorted / half) * 50, 3);
+    this.coldBar.fillRect(20, this.uiY + 36, Math.min(1, coldSorted / half) * 50, 3);
 
     this.hotBar.clear();
     this.hotBar.fillStyle(0xFF6B35);
-    this.hotBar.fillRect(GAME_W - 70, this.uiY + 32, Math.min(1, hotSorted / half) * 50, 3);
+    this.hotBar.fillRect(GAME_W - 70, this.uiY + 36, Math.min(1, hotSorted / half) * 50, 3);
 
     // valve indicator tween
     if (holeOpen) {
