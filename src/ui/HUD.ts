@@ -38,7 +38,7 @@ export class HUD {
       fontFamily: 'monospace',
     }).setOrigin(0.5, 0);
 
-    this.controlHintText = scene.add.text(GAME_W / 2, 24, 'CLICK HOLD: CLOSE', {
+    this.controlHintText = scene.add.text(GAME_W / 2, 24, 'HOLE: CLOSED', {
       fontSize: '11px',
       color: '#8FA4D8',
       fontFamily: 'monospace',
@@ -95,7 +95,7 @@ export class HUD {
     this.coldCountText.setText(`COLD: ${coldSorted}`);
     this.hotCountText.setText(`HOT: ${hotSorted}`);
 
-    this.controlHintText.setText(holeOpen ? 'CLICK HOLD: OPEN' : 'CLICK HOLD: CLOSE');
+    this.controlHintText.setText(holeOpen ? 'HOLE: OPEN' : 'HOLE: CLOSED');
     this.controlHintText.setColor(holeOpen ? '#1AC878' : '#8FA4D8');
 
     // bar
