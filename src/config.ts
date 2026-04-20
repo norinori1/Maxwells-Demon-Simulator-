@@ -9,11 +9,15 @@ export const TIME_LIMIT = 60;
 
 export const HOT_SPEED_MIN = 1.9;
 export const HOT_SPEED_MAX = 3.4;
-export const COLD_SPEED_MIN = 0.4;
-export const COLD_SPEED_MAX = 1.1;
+export const COLD_SPEED_MIN = 1.0;
+export const COLD_SPEED_MAX = 2.0;
 
-export const COLOR_HOT = 0xC8512A;
-export const COLOR_COLD = 0x2070C0;
-export const COLOR_BG = 0x0C0C18;
-export const COLOR_PARTITION = 0x32324A;
-export const COLOR_HOLE = 0x1AC878;
+export const COLOR_HOT       = 0xFF6B35;
+export const COLOR_COLD      = 0x00BFFF;
+export const COLOR_BG        = 0x080D1A;
+export const COLOR_PARTITION = 0x1C2E44;
+export const COLOR_HOLE      = 0x00E5CC;
+
+export const COLOR_GRID         = 0x101A2E;
+export const COLOR_AMBER        = 0xFF8C00;
+export const COLOR_PANEL_BORDER = 0x1E3A5F;

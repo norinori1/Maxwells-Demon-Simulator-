@@ -37,8 +37,19 @@ export class Partition {
       if (holeBottom < wallHeight) {
         this.gfx.fillRect(PARTITION_X - 3, holeBottom, 6, wallHeight - holeBottom);
       }
+      // cyan valve bracket
       this.gfx.lineStyle(2, COLOR_HOLE);
-      this.gfx.strokeRect(PARTITION_X - 5, holeTop, 10, HOLE_SIZE);
+      this.gfx.strokeRect(PARTITION_X - 6, holeTop, 12, HOLE_SIZE);
+      // valve end-caps
+      this.gfx.lineStyle(3, COLOR_HOLE);
+      this.gfx.lineBetween(PARTITION_X - 8, holeTop, PARTITION_X + 8, holeTop);
+      this.gfx.lineBetween(PARTITION_X - 8, holeBottom, PARTITION_X + 8, holeBottom);
+    }
+
+    // metal hatching lines over the solid wall
+    this.gfx.lineStyle(1, 0x2A4060, 0.25);
+    for (let y = 0; y < wallHeight; y += 8) {
+      this.gfx.lineBetween(PARTITION_X - 3, y, PARTITION_X + 3, y + 6);
     }
   }
 

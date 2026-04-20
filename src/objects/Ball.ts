@@ -8,10 +8,12 @@ import {
 } from '../config';
 
 export class Ball {
+  private glowArc: Phaser.GameObjects.Arc;
   private arc: Phaser.GameObjects.Arc;
   private vx: number;
   private vy: number;
   readonly type: 'hot' | 'cold';
+  public justPassed = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, type: 'hot' | 'cold') {
     this.type = type;
@@ -23,15 +25,26 @@ export class Ball {
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
     const color = type === 'hot' ? COLOR_HOT : COLOR_COLD;
+    const glowColor = type === 'hot' ? 0xFF6B35 : 0x00BFFF;
+    // glow arc first so it renders behind the body
+    this.glowArc = scene.add.arc(x, y, BALL_RADIUS * 3, 0, 360, false, glowColor);
+    this.glowArc.setAlpha(0.15);
     this.arc = scene.add.arc(x, y, BALL_RADIUS, 0, 360, false, color);
   }
 
+  get x() { return this.arc.x; }
+  get y() { return this.arc.y; }
+
   update(dt: number, holeOpen: boolean, holeY: number) {
+    this.justPassed = false;
     const prevX = this.arc.x;
     this.arc.x += this.vx * dt;
     this.arc.y += this.vy * dt;
     this.reflectWalls();
     this.checkPartition(prevX, holeOpen, holeY);
+    this.glowArc.x = this.arc.x;
+    this.glowArc.y = this.arc.y;
+    this.glowArc.setAlpha(this.isCorrectSide() ? 0.30 : 0.12);
   }
 
   private reflectWalls() {
@@ -62,6 +75,8 @@ export class Ball {
       this.arc.x = prevX < wx
         ? wx - BALL_RADIUS - 1
         : wx + BALL_RADIUS + 1;
+    } else {
+      this.justPassed = true;
     }
   }
 
@@ -72,6 +87,7 @@ export class Ball {
   }
 
   destroy() {
+    this.glowArc.destroy();
     this.arc.destroy();
   }
 }
