@@ -25,6 +25,7 @@ export class TitleScene extends Phaser.Scene {
   private isBootComplete = false;
   private isTransitioning = false;
   private isBriefingOpen = false;
+  private isCreditsOpen = false;
   private allTweens: Phaser.Tweens.Tween[] = [];
   private delayedCalls: Phaser.Time.TimerEvent[] = [];
 
@@ -46,6 +47,7 @@ export class TitleScene extends Phaser.Scene {
   private ctaElements: AlphaTarget[] = [];
 
   private briefingLayer!: Phaser.GameObjects.Container;
+  private creditsLayer!: Phaser.GameObjects.Container;
 
   constructor() {
     super({ key: 'TitleScene' });
@@ -57,6 +59,7 @@ export class TitleScene extends Phaser.Scene {
 
     this.buildBaseLayout();
     this.buildBriefingOverlay();
+    this.buildCreditsOverlay();
     this.startBootSequence();
     this.bindInputs();
   }
@@ -120,8 +123,11 @@ export class TitleScene extends Phaser.Scene {
     this.createButton(cx, cy + 60, CTA_W, CTA_H, '[ INITIATE  RUN ]', false, () => {
       this.startRun();
     });
-    this.createButton(cx, cy + 104, CTA_W, CTA2_H, '[ BRIEFING ]', true, () => {
+    this.createButton(cx - 57, cy + 104, 106, CTA2_H, '[ BRIEFING ]', true, () => {
       this.showBriefingOverlay();
+    });
+    this.createButton(cx + 57, cy + 104, 106, CTA2_H, '[ CREDITS ]', true, () => {
+      this.showCreditsOverlay();
     });
 
     this.titleElements.push(
@@ -390,9 +396,14 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
         return;
       }
 
-      if (this.isBriefingOpen) {
+      if (this.isBriefingOpen || this.isCreditsOpen) {
         if (e.code === 'Escape') {
-          this.hideBriefingOverlay();
+          if (this.isBriefingOpen) {
+            this.hideBriefingOverlay();
+          }
+          if (this.isCreditsOpen) {
+            this.hideCreditsOverlay();
+          }
         }
         return;
       }
@@ -401,6 +412,8 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
         this.startRun();
       } else if (e.code === 'KeyH') {
         this.showBriefingOverlay();
+      } else if (e.code === 'KeyC') {
+        this.showCreditsOverlay();
       }
     });
   }
@@ -458,7 +471,7 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
   }
 
   private showBriefingOverlay() {
-    if (!this.isBootComplete || this.isBriefingOpen || this.isTransitioning) return;
+    if (!this.isBootComplete || this.isBriefingOpen || this.isCreditsOpen || this.isTransitioning) return;
     this.isBriefingOpen = true;
     this.briefingLayer.setVisible(true).setAlpha(0);
     this.tween(this.briefingLayer, { alpha: 1 }, 180);
@@ -474,8 +487,93 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
     tryPlay(this, 'se_valve_close', { volume: 0.6 });
   }
 
+  private buildCreditsOverlay() {
+    const cx = GAME_W / 2;
+    const cy = GAME_H / 2;
+    const panelW = 520;
+    const panelH = 304;
+    const panelX = cx - panelW / 2;
+    const panelY = cy - panelH / 2;
+
+    const bg = this.add.rectangle(0, 0, GAME_W, GAME_H, COLOR_BG, 0.92).setOrigin(0, 0);
+    const panel = this.add.graphics();
+    panel.fillStyle(PANEL_FILL, 1);
+    panel.fillRect(panelX, panelY, panelW, panelH);
+    panel.lineStyle(1, COLOR_PANEL_BORDER);
+    panel.strokeRect(panelX, panelY, panelW, panelH);
+
+    const body = this.add.text(panelX + 28, panelY + 22,
+`CREDITS ──────────────────────────────────
+
+CREATED BY
+  norinori1
+  NORINORI LABS
+
+TECH STACK
+  Phaser 3
+  TypeScript
+  Vite
+
+AUDIO
+  Optional sound assets: public/sounds/*
+  Attribution notes: docs/audio-spec.md
+
+© 2026 NORINORI LABS`, {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: TEXT_PRIMARY,
+      lineSpacing: 4,
+    });
+
+    const closeBg = this.add.graphics();
+    const closeY = panelY + panelH - 28;
+    const closeText = this.add.text(cx, closeY, '[ CLOSE ] (ESC)', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#4A6FA8',
+    }).setOrigin(0.5);
+    const closeW = 170;
+    const closeH = 32;
+    const closeDraw = (hover: boolean) => {
+      closeBg.clear();
+      closeBg.lineStyle(1, hover ? COLOR_HOLE : PANEL_BORDER_ACTIVE);
+      closeBg.strokeRect(cx - closeW / 2, closeY - closeH / 2, closeW, closeH);
+      if (hover) {
+        closeBg.lineStyle(1, COLOR_HOLE, 0.3);
+        closeBg.strokeRect(cx - closeW / 2 - 2, closeY - closeH / 2 - 2, closeW + 4, closeH + 4);
+      }
+      closeText.setColor(hover ? '#00E5CC' : '#4A6FA8');
+    };
+    closeDraw(false);
+
+    const closeZone = this.add.zone(cx, closeY, closeW, closeH).setInteractive({ useHandCursor: true });
+    closeZone.on('pointerover', () => closeDraw(true));
+    closeZone.on('pointerout', () => closeDraw(false));
+    closeZone.on('pointerup', () => this.hideCreditsOverlay());
+
+    this.creditsLayer = this.add.container(0, 0, [bg, panel, body, closeBg, closeText, closeZone]);
+    this.creditsLayer.setDepth(20).setAlpha(0).setVisible(false);
+  }
+
+  private showCreditsOverlay() {
+    if (!this.isBootComplete || this.isCreditsOpen || this.isBriefingOpen || this.isTransitioning) return;
+    this.isCreditsOpen = true;
+    this.creditsLayer.setVisible(true).setAlpha(0);
+    this.tween(this.creditsLayer, { alpha: 1 }, 180);
+    tryPlay(this, 'se_valve_open', { volume: 0.3 });
+  }
+
+  private hideCreditsOverlay() {
+    if (!this.isCreditsOpen) return;
+    this.isCreditsOpen = false;
+    this.tween(this.creditsLayer, { alpha: 0 }, 160, 0, 0, false, () => {
+      this.creditsLayer.setVisible(false);
+    });
+    tryPlay(this, 'se_valve_close', { volume: 0.6 });
+  }
+
   private startRun() {
-    if (!this.isBootComplete || this.isTransitioning || this.isBriefingOpen) return;
+    if (!this.isBootComplete || this.isTransitioning || this.isBriefingOpen || this.isCreditsOpen) return;
     this.isTransitioning = true;
     this.input.enabled = false;
     this.sound.stopAll();
