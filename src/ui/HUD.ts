@@ -87,7 +87,7 @@ export class HUD {
     const pct = total > 0 ? sorted / total : 0;
     this.barFill.clear();
     const fillColor = Phaser.Display.Color.Interpolate.ColorWithColor(
-      Phaser.Display.Color.ValueToColor(0x225588),
+      Phaser.Display.Color.ValueToColor(0x145030),
       Phaser.Display.Color.ValueToColor(0x1AC878),
       100,
       Math.round(pct * 100),
