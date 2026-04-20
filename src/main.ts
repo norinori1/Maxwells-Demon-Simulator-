@@ -7,7 +7,7 @@ import { GAME_W, GAME_H, COLOR_BG } from './config';
 
 const MOBILE_BREAKPOINT = 768;
 const MOBILE_RESERVED_HEIGHT = 190;
-const DESKTOP_RESERVED_HEIGHT = 240;
+const DESKTOP_RESERVED_HEIGHT = 140;
 const VIEWPORT_PADDING = 32;
 const MIN_GAME_WIDTH = 280;
 const MIN_GAME_HEIGHT = 220;
@@ -51,6 +51,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: GAME_H,
   backgroundColor: COLOR_BG,
   parent: 'game',
+  resolution: Math.max(window.devicePixelRatio || 1, 2),
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
