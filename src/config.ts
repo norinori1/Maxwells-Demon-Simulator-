@@ -9,8 +9,8 @@ export const TIME_LIMIT = 60;
 
 export const HOT_SPEED_MIN = 1.9;
 export const HOT_SPEED_MAX = 3.4;
-export const COLD_SPEED_MIN = 0.4;
-export const COLD_SPEED_MAX = 1.1;
+export const COLD_SPEED_MIN = 1.0;
+export const COLD_SPEED_MAX = 2.0;
 
 export const COLOR_HOT       = 0xFF6B35;
 export const COLOR_COLD      = 0x00BFFF;

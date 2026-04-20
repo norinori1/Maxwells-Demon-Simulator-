@@ -40,6 +40,13 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // chamber zone overlays
+    const zones = this.add.graphics().setDepth(-1);
+    zones.fillStyle(0x00BFFF, 0.05);
+    zones.fillRect(0, 0, PARTITION_X, GAME_H - UI_H);
+    zones.fillStyle(0xFF6B35, 0.05);
+    zones.fillRect(PARTITION_X, 0, GAME_W - PARTITION_X, GAME_H - UI_H);
+
     this.pointer = this.input.activePointer;
     this.partition = new Partition(this);
     this.spawnBalls();
