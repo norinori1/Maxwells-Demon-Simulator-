@@ -32,6 +32,8 @@ export class GameScene extends Phaser.Scene {
   private coldSorted = 0;
   private currentStreak = 0;
   private maxStreak = 0;
+  private valveStreamLeft?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private valveStreamRight?: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -70,6 +72,26 @@ export class GameScene extends Phaser.Scene {
     this.partition = new Partition(this);
     this.spawnBalls();
     this.hud = new HUD(this);
+    this.valveStreamLeft = this.add.particles(PARTITION_X, GAME_H / 2, 'particle', {
+      speed: { min: 20, max: 60 },
+      angle: { min: 170, max: 190 },
+      lifespan: 300,
+      quantity: 1,
+      frequency: 25,
+      tint: [0x00E5CC, 0x5D8FAA],
+      scale: { start: 0.8, end: 0 },
+      emitting: false,
+    });
+    this.valveStreamRight = this.add.particles(PARTITION_X, GAME_H / 2, 'particle', {
+      speed: { min: 20, max: 60 },
+      angle: { min: -10, max: 10 },
+      lifespan: 300,
+      quantity: 1,
+      frequency: 25,
+      tint: [0x00E5CC, 0x5D8FAA],
+      scale: { start: 0.8, end: 0 },
+      emitting: false,
+    });
 
     // vignette overlay (starts invisible, fades in at low time)
     this.vignette = this.add.graphics().setDepth(10);
@@ -77,13 +99,14 @@ export class GameScene extends Phaser.Scene {
     this.vignette.fillRect(0, 0, GAME_W, GAME_H);
     this.vignette.setAlpha(0);
 
-    // BGM
-    if (this.cache.audio.has('bgm_game')) {
-      this.bgm = this.sound.add('bgm_game', { loop: true, volume: 0.5 });
-      this.bgm.play();
-    }
-
-    this.isPlaying = true;
+    this.hud.showCountdown(() => {
+      // BGM starts when play starts
+      if (this.cache.audio.has('bgm_game')) {
+        this.bgm = this.sound.add('bgm_game', { loop: true, volume: 0.5 });
+        this.bgm.play();
+      }
+      this.isPlaying = true;
+    });
   }
 
   private spawnBalls() {
@@ -138,6 +161,7 @@ export class GameScene extends Phaser.Scene {
         emitting: false,
       });
       leftEmitter.explode(8);
+      this.time.delayedCall(400, () => leftEmitter.destroy());
 
       const rightEmitter = this.add.particles(PARTITION_X, holeY, 'particle', {
         speed: { min: 30, max: 70 },
@@ -149,6 +173,7 @@ export class GameScene extends Phaser.Scene {
         emitting: false,
       });
       rightEmitter.explode(8);
+      this.time.delayedCall(400, () => rightEmitter.destroy());
     }
     if (!holeOpen && this.prevHoleOpen) {
       tryPlay(this, 'se_valve_close', { volume: 0.5 });
@@ -157,29 +182,92 @@ export class GameScene extends Phaser.Scene {
       this.valveOpenMs += delta;
     }
     this.prevHoleOpen = holeOpen;
+    this.valveStreamLeft?.setPosition(PARTITION_X, holeY);
+    this.valveStreamRight?.setPosition(PARTITION_X, holeY);
+    if (holeOpen) {
+      if (this.valveStreamLeft && !this.valveStreamLeft.on) this.valveStreamLeft.start();
+      if (this.valveStreamRight && !this.valveStreamRight.on) this.valveStreamRight.start();
+    } else {
+      if (this.valveStreamLeft?.on) this.valveStreamLeft.stop();
+      if (this.valveStreamRight?.on) this.valveStreamRight.stop();
+    }
 
     this.partition.update(holeOpen, holeY);
+    const speedMult = this.timeLeft < 15 ? 1.4 : this.timeLeft < 30 ? 1.2 : 1.0;
     for (const ball of this.balls) {
+      ball.setSpeedMultiplier(speedMult);
       ball.update(dt, holeOpen, holeY);
     }
 
     // pass-through flash + SFX
     for (const ball of this.balls) {
       if (ball.justPassed) {
-        if (ball.isCorrectSide()) {
+        const correct = ball.isCorrectSide();
+        if (correct) {
           this.currentStreak++;
           this.maxStreak = Math.max(this.maxStreak, this.currentStreak);
+          this.hud.showStreak(this.currentStreak);
+          if (this.currentStreak === 10) {
+            this.cameras.main.shake(180, 0.005);
+          } else if (this.currentStreak === 5) {
+            this.cameras.main.shake(120, 0.003);
+          }
         } else {
           this.currentStreak = 0;
         }
-        tryPlay(this, 'se_ball_pass', { volume: 0.4 });
-        const flash = this.add.arc(ball.x, ball.y, BALL_RADIUS * 2.5, 0, 360, false, 0xFFFFFF);
-        flash.setAlpha(0.8);
+        tryPlay(this, correct ? 'se_ball_pass' : 'se_valve_close', { volume: 0.4 });
+        const flashColor = correct ? 0x00FF88 : 0xFF3333;
+        const flash = this.add.arc(ball.x, ball.y, BALL_RADIUS * 2.5, 0, 360, false, flashColor);
+        flash.setAlpha(0.9);
         this.tweens.add({
           targets: flash,
           alpha: 0,
           duration: 200,
           onComplete: () => flash.destroy(),
+        });
+        const floatLabel = this.add.text(ball.x, ball.y - 10, correct ? '+1' : '−1', {
+          fontSize: '14px',
+          color: correct ? '#00FF88' : '#FF3333',
+          fontFamily: 'monospace',
+        }).setOrigin(0.5).setDepth(5);
+        this.tweens.add({
+          targets: floatLabel,
+          y: ball.y - 38,
+          alpha: 0,
+          duration: 500,
+          onComplete: () => floatLabel.destroy(),
+        });
+        if (correct) {
+          const chamberFlash = this.add.graphics().setDepth(-0.5);
+          const chamberColor = ball.type === 'cold' ? 0x00BFFF : 0xFF6B35;
+          chamberFlash.fillStyle(chamberColor, 0.18);
+          if (ball.type === 'cold') {
+            chamberFlash.fillRect(0, 0, PARTITION_X, GAME_H - UI_H);
+          } else {
+            chamberFlash.fillRect(PARTITION_X, 0, GAME_W - PARTITION_X, GAME_H - UI_H);
+          }
+          this.tweens.add({
+            targets: chamberFlash,
+            alpha: 0,
+            duration: 150,
+            onComplete: () => chamberFlash.destroy(),
+          });
+        }
+      }
+    }
+
+    for (const ball of this.balls) {
+      if (ball.justBounced) {
+        const ringColor = ball.type === 'hot' ? 0xFF6B35 : 0x00BFFF;
+        const ring = this.add.arc(PARTITION_X, ball.bounceY, 4, 0, 360, false);
+        ring.setStrokeStyle(2, ringColor, 0.8).setAlpha(0.8);
+        this.tweens.add({
+          targets: ring,
+          scaleX: 4.5,
+          scaleY: 4.5,
+          alpha: 0,
+          duration: 220,
+          onComplete: () => ring.destroy(),
         });
       }
     }
@@ -214,14 +302,34 @@ export class GameScene extends Phaser.Scene {
   private endGame() {
     this.isPlaying = false;
     this.bgm?.stop();
-    const { cold, hot } = this.countSorted();
-    this.scene.start('ResultScene', {
-      sorted: cold + hot,
-      total: this.balls.length,
-      hotSorted: this.hotSorted,
-      coldSorted: this.coldSorted,
-      valveOpenMs: this.valveOpenMs,
-      maxStreak: this.maxStreak,
+    this.valveStreamLeft?.stop();
+    this.valveStreamRight?.stop();
+    this.cameras.main.shake(300, 0.008);
+    tryPlay(this, 'se_warning', { volume: 0.9 });
+
+    const timeUpLabel = this.add.text(GAME_W / 2, (GAME_H - UI_H) / 2, 'T I M E   U P', {
+      fontSize: '48px',
+      color: '#FF3333',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5).setAlpha(0).setDepth(15);
+
+    this.tweens.add({
+      targets: timeUpLabel,
+      alpha: 1,
+      duration: 300,
+      yoyo: true,
+      hold: 500,
+      onComplete: () => {
+        const { cold, hot } = this.countSorted();
+        this.scene.start('ResultScene', {
+          sorted: cold + hot,
+          total: this.balls.length,
+          hotSorted: this.hotSorted,
+          coldSorted: this.coldSorted,
+          valveOpenMs: this.valveOpenMs,
+          maxStreak: this.maxStreak,
+        });
+      },
     });
   }
 }

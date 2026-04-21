@@ -9,11 +9,16 @@ import {
 
 export class Ball {
   private glowArc: Phaser.GameObjects.Arc;
+  private trails: Phaser.GameObjects.Arc[] = [];
+  private history: { x: number; y: number }[] = [];
   private arc: Phaser.GameObjects.Arc;
   private vx: number;
   private vy: number;
+  private speedMult = 1.0;
   readonly type: 'hot' | 'cold';
   public justPassed = false;
+  public justBounced = false;
+  public bounceY = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, type: 'hot' | 'cold') {
     this.type = type;
@@ -29,22 +34,45 @@ export class Ball {
     // glow arc first so it renders behind the body
     this.glowArc = scene.add.arc(x, y, BALL_RADIUS * 3, 0, 360, false, glowColor);
     this.glowArc.setAlpha(0.15);
+    for (let i = 0; i < 3; i++) {
+      const trail = scene.add.arc(x, y, BALL_RADIUS * (0.8 - i * 0.2), 0, 360, false, color);
+      trail.setAlpha(0).setVisible(false);
+      this.trails.push(trail);
+      this.history.push({ x, y });
+    }
     this.arc = scene.add.arc(x, y, BALL_RADIUS, 0, 360, false, color);
   }
 
   get x() { return this.arc.x; }
   get y() { return this.arc.y; }
 
+  setSpeedMultiplier(m: number) { this.speedMult = m; }
+
   update(dt: number, holeOpen: boolean, holeY: number) {
     this.justPassed = false;
+    this.justBounced = false;
     const prevX = this.arc.x;
-    this.arc.x += this.vx * dt;
-    this.arc.y += this.vy * dt;
+    this.arc.x += this.vx * this.speedMult * dt;
+    this.arc.y += this.vy * this.speedMult * dt;
     this.reflectWalls();
     this.checkPartition(prevX, holeOpen, holeY);
     this.glowArc.x = this.arc.x;
     this.glowArc.y = this.arc.y;
     this.glowArc.setAlpha(this.isCorrectSide() ? 0.30 : 0.12);
+
+    this.history.unshift({ x: this.arc.x, y: this.arc.y });
+    if (this.history.length > 3) this.history.pop();
+    const trailStrength = Phaser.Math.Clamp((this.speedMult - 1.0) / 0.4, 0, 1);
+    const showTrail = trailStrength > 0;
+    for (let i = 0; i < this.trails.length; i++) {
+      const trail = this.trails[i];
+      const h = this.history[i] ?? this.history[this.history.length - 1];
+      trail.setVisible(showTrail);
+      if (showTrail) {
+        trail.setPosition(h.x, h.y);
+        trail.setAlpha((0.5 - i * 0.15) * trailStrength);
+      }
+    }
   }
 
   private reflectWalls() {
@@ -75,6 +103,8 @@ export class Ball {
       this.arc.x = prevX < wx
         ? wx - BALL_RADIUS - 1
         : wx + BALL_RADIUS + 1;
+      this.justBounced = true;
+      this.bounceY = this.arc.y;
     } else {
       this.justPassed = true;
     }
@@ -87,6 +117,9 @@ export class Ball {
   }
 
   destroy() {
+    for (const trail of this.trails) {
+      trail.destroy();
+    }
     this.glowArc.destroy();
     this.arc.destroy();
   }
