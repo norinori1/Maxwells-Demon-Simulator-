@@ -7,6 +7,11 @@ import {
   COLOR_HOT, COLOR_COLD,
 } from '../config';
 
+interface BallInitOptions {
+  vx?: number;
+  vy?: number;
+}
+
 export class Ball {
   private glowArc: Phaser.GameObjects.Arc;
   private trails: Phaser.GameObjects.Arc[] = [];
@@ -20,15 +25,20 @@ export class Ball {
   public justBounced = false;
   public bounceY = 0;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, type: 'hot' | 'cold') {
+  constructor(scene: Phaser.Scene, x: number, y: number, type: 'hot' | 'cold', options?: BallInitOptions) {
     this.type = type;
     const [minSpd, maxSpd] = type === 'hot'
       ? [HOT_SPEED_MIN, HOT_SPEED_MAX]
       : [COLD_SPEED_MIN, COLD_SPEED_MAX];
     const speed = Phaser.Math.FloatBetween(minSpd, maxSpd) * 60;
-    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-    this.vx = Math.cos(angle) * speed;
-    this.vy = Math.sin(angle) * speed;
+    if (typeof options?.vx === 'number' && typeof options?.vy === 'number') {
+      this.vx = options.vx;
+      this.vy = options.vy;
+    } else {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      this.vx = Math.cos(angle) * speed;
+      this.vy = Math.sin(angle) * speed;
+    }
     const color = type === 'hot' ? COLOR_HOT : COLOR_COLD;
     const glowColor = type === 'hot' ? 0xFF6B35 : 0x00BFFF;
     // glow arc first so it renders behind the body
@@ -45,6 +55,8 @@ export class Ball {
 
   get x() { return this.arc.x; }
   get y() { return this.arc.y; }
+  get speedX() { return this.vx * this.speedMult; }
+  get speedY() { return this.vy * this.speedMult; }
 
   setSpeedMultiplier(m: number) { this.speedMult = m; }
 
@@ -86,7 +98,7 @@ export class Ball {
     this.arc.y = Phaser.Math.Clamp(this.arc.y, r, maxY);
   }
 
-  private checkPartition(prevX: number, holeOpen: boolean, holeY: number) {
+  private checkPartition(prevX: number, holeOpen: boolean, holeY: number, holeSize = HOLE_SIZE) {
     const wx = PARTITION_X;
     const crossedWall =
       (prevX < wx && this.arc.x >= wx) ||
@@ -95,8 +107,8 @@ export class Ball {
 
     const withinHole =
       holeOpen &&
-      this.arc.y > holeY - HOLE_SIZE / 2 - BALL_RADIUS &&
-      this.arc.y < holeY + HOLE_SIZE / 2 + BALL_RADIUS;
+      this.arc.y > holeY - holeSize / 2 - BALL_RADIUS &&
+      this.arc.y < holeY + holeSize / 2 + BALL_RADIUS;
 
     if (!withinHole) {
       this.vx *= -1;
@@ -114,6 +126,61 @@ export class Ball {
     return this.type === 'cold'
       ? this.arc.x < PARTITION_X
       : this.arc.x > PARTITION_X;
+  }
+
+  updateWithHoleSize(dt: number, holeOpen: boolean, holeY: number, holeSize: number) {
+    this.justPassed = false;
+    this.justBounced = false;
+    const prevX = this.arc.x;
+    this.arc.x += this.vx * this.speedMult * dt;
+    this.arc.y += this.vy * this.speedMult * dt;
+    this.reflectWalls();
+    this.checkPartition(prevX, holeOpen, holeY, holeSize);
+    this.glowArc.x = this.arc.x;
+    this.glowArc.y = this.arc.y;
+    this.glowArc.setAlpha(this.isCorrectSide() ? 0.30 : 0.12);
+
+    this.history.unshift({ x: this.arc.x, y: this.arc.y });
+    if (this.history.length > 3) this.history.pop();
+    const trailStrength = Phaser.Math.Clamp((this.speedMult - 1.0) / 0.4, 0, 1);
+    const showTrail = trailStrength > 0;
+    for (let i = 0; i < this.trails.length; i++) {
+      const trail = this.trails[i];
+      const h = this.history[i] ?? this.history[this.history.length - 1];
+      trail.setVisible(showTrail);
+      if (showTrail) {
+        trail.setPosition(h.x, h.y);
+        trail.setAlpha((0.5 - i * 0.15) * trailStrength);
+      }
+    }
+  }
+
+  getWrongPassThreat(holeOpen: boolean, holeY: number, holeSize: number, minWindowSec: number, maxWindowSec: number): number {
+    if (!holeOpen) return 0;
+    const movingRight = this.speedX > 0;
+    const movingLeft = this.speedX < 0;
+    const canCrossNow =
+      this.y > holeY - holeSize / 2 - BALL_RADIUS &&
+      this.y < holeY + holeSize / 2 + BALL_RADIUS;
+    if (!canCrossNow) return 0;
+    const wouldBeWrong =
+      (this.type === 'cold' && movingRight && this.x < PARTITION_X) ||
+      (this.type === 'hot' && movingLeft && this.x > PARTITION_X);
+    if (!wouldBeWrong) return 0;
+    const speedAbs = Math.max(1, Math.abs(this.speedX));
+    const timeToWallSec = Math.abs(PARTITION_X - this.x) / speedAbs;
+    if (timeToWallSec < minWindowSec || timeToWallSec > maxWindowSec) return 0;
+    return Phaser.Math.Clamp((maxWindowSec - timeToWallSec) / (maxWindowSec - minWindowSec), 0.1, 1);
+  }
+
+  setThreatVisual(threat: number) {
+    const baseColor = this.type === 'hot' ? 0xFF6B35 : 0x00BFFF;
+    if (threat <= 0) {
+      this.glowArc.setFillStyle(baseColor, 1);
+      return;
+    }
+    this.glowArc.setFillStyle(0xFF3333, 1);
+    this.glowArc.setAlpha(0.25 + threat * 0.45);
   }
 
   destroy() {

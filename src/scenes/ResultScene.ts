@@ -17,6 +17,15 @@ interface ResultData {
   valveOpenMs?: number;
   maxStreak?: number;
   bestPct?: number;
+  score?: number;
+  missionStates?: boolean[];
+  firstSuccessSec?: number | null;
+  overdriveUsage?: number;
+  challengeProgress?: {
+    gradeA: boolean;
+    streak10: boolean;
+    overdriveControl: boolean;
+  };
 }
 
 interface GradeInfo {
@@ -55,6 +64,11 @@ export class ResultScene extends Phaser.Scene {
     const coldSorted = data.coldSorted ?? 0;
     const valveOpenMs = data.valveOpenMs ?? 0;
     const maxStreak = data.maxStreak ?? 0;
+    const score = data.score ?? 0;
+    const missionStates = data.missionStates ?? [false, false, false];
+    const firstSuccessSec = data.firstSuccessSec;
+    const overdriveUsage = data.overdriveUsage ?? 0;
+    const challengeProgress = data.challengeProgress ?? { gradeA: false, streak10: false, overdriveControl: false };
     const hotTotal = Math.max(0, Math.floor(total / 2));
     const coldTotal = Math.max(0, total - hotTotal);
     const pct = total > 0 ? Math.round((sorted / total) * 100) : 0;
@@ -144,7 +158,7 @@ export class ResultScene extends Phaser.Scene {
       `HOT   correct: ${hotSorted.toString().padStart(2, ' ')} / ${hotTotal.toString().padStart(2, ' ')}`,
       `COLD  correct: ${coldSorted.toString().padStart(2, ' ')} / ${coldTotal.toString().padStart(2, ' ')}`,
       `VALVE uptime: ${valveSec.toFixed(1).padStart(5, ' ')} s`,
-      `BEST STREAK: ${maxStreak}`,
+      `BEST STREAK: ${maxStreak}  SCORE: ${score}`,
     ];
     const telemetryTargets = [
       hotTotal > 0 ? (hotSorted / hotTotal) : 0,
@@ -170,24 +184,52 @@ export class ResultScene extends Phaser.Scene {
       fontSize: '13px', color, fontFamily: 'monospace',
     }).setOrigin(0.5).setAlpha(0);
 
-    const sep2 = this.add.text(cx, cy + 208, SEP, {
+    const missionSummary = this.add.text(cx, cy + 206, `MISSIONS: ${missionStates.filter(Boolean).length}/3`, {
+      fontSize: '11px',
+      color: missionStates.every(Boolean) ? '#00FF88' : '#4A6FA8',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5).setAlpha(0);
+
+    const sep2 = this.add.text(cx, cy + 220, SEP, {
       fontSize: '10px', color: '#1C2E44', fontFamily: 'monospace',
     }).setOrigin(0.5).setAlpha(0);
 
-    const bestText = this.add.text(cx, cy + 226, '', {
+    const nextAction = this.getNextActionRecommendation({
+      pct,
+      maxStreak,
+      firstSuccessSec,
+      overdriveUsage,
+      missionStates,
+    });
+    const nextActionText = this.add.text(cx, cy + 236, `NEXT: ${nextAction}`, {
+      fontSize: '10px',
+      color: '#E6F1FF',
+      fontFamily: 'monospace',
+      wordWrap: { width: 520, useAdvancedWrap: false },
+      align: 'center',
+    }).setOrigin(0.5).setAlpha(0);
+
+    const challengeText = this.add.text(cx, cy + 264, this.formatChallengeText(challengeProgress), {
+      fontSize: '10px',
+      color: '#4A6FA8',
+      fontFamily: 'monospace',
+      align: 'center',
+    }).setOrigin(0.5).setAlpha(0);
+
+    const bestText = this.add.text(cx, cy + 282, '', {
       fontSize: '11px',
       color: isNewBest ? '#FF8C00' : '#4A6FA8',
       fontFamily: 'monospace',
     }).setOrigin(0.5).setAlpha(0);
     bestText.setText(isNewBest ? 'PERSONAL BEST ★ NEW RECORD' : `PERSONAL BEST: ${bestForDisplay}%`);
 
-    const reBtn = this.createButton(cx - 120, cy + 252, 200, 36, '[ REINITIALIZE ]', () => this.startGame());
-    const titleBtn = this.createButton(cx + 120, cy + 252, 220, 36, '[ RETURN TO TITLE ]', () => this.startTitle());
+    const reBtn = this.createButton(cx - 120, cy + 308, 200, 36, '[ REINITIALIZE ]', () => this.startGame());
+    const titleBtn = this.createButton(cx + 120, cy + 308, 220, 36, '[ RETURN TO TITLE ]', () => this.startTitle());
 
     elements.push(
       headerL, headerR, sep1, effLabel, sDiamond, gradeText,
       accuracyBg, accuracyBar, accuracyLabel, sortDetail, telemetryFrame,
-      ...telemetryTexts, ...telemetryBars, statusText, sep2, bestText,
+      ...telemetryTexts, ...telemetryBars, statusText, missionSummary, sep2, nextActionText, challengeText, bestText,
       ...reBtn, ...titleBtn,
     );
 
@@ -218,7 +260,7 @@ export class ResultScene extends Phaser.Scene {
     });
 
     this.tween(statusText, { alpha: 1 }, 200, 800);
-    this.tween(sep2, { alpha: 1 }, 150, 900);
+    this.tween([missionSummary, sep2], { alpha: 1 }, 150, 900);
     this.tween(telemetryFrame, { alpha: 1 }, 200, 1000);
 
     for (let i = 0; i < telemetryTexts.length; i++) {
@@ -240,7 +282,7 @@ export class ResultScene extends Phaser.Scene {
       }
     }
 
-    this.tween([bestText, ...reBtn, ...titleBtn], { alpha: 1 }, 200, 1400, 0, false, () => {
+    this.tween([nextActionText, challengeText, bestText, ...reBtn, ...titleBtn], { alpha: 1 }, 200, 1400, 0, false, () => {
       this.isComplete = true;
       this.inputUnlockAt = this.time.now;
       if (isNewBest) {
@@ -429,5 +471,35 @@ export class ResultScene extends Phaser.Scene {
       onComplete,
     });
     this.allTweens.push(tween);
+  }
+
+  private getNextActionRecommendation(input: {
+    pct: number;
+    maxStreak: number;
+    firstSuccessSec: number | null | undefined;
+    overdriveUsage: number;
+    missionStates: boolean[];
+  }): string {
+    if ((input.firstSuccessSec ?? 99) > 12) {
+      return '序盤10秒は中央でバルブを開け、最初の正解通過を先に作る';
+    }
+    if (input.pct < 60) {
+      return '危険予兆表示中は一度閉じて位置調整。精度60%を先に狙う';
+    }
+    if (input.maxStreak < 10) {
+      return '連続正解10回に挑戦。焦って開けっぱなしにしない';
+    }
+    if (input.overdriveUsage < 3) {
+      return 'OVERDRIVEを3回使い、ボーナスでスコアを伸ばす';
+    }
+    if (!input.missionStates.every(Boolean)) {
+      return '未達MISSIONを埋めて3/3完了を目指す';
+    }
+    return 'A以上を維持しつつS(80%)へ。高リスク局面だけOVERDRIVEを使う';
+  }
+
+  private formatChallengeText(challenges: { gradeA: boolean; streak10: boolean; overdriveControl: boolean }): string {
+    const mark = (ok: boolean) => ok ? '✓' : '·';
+    return `CHALLENGES  ${mark(challenges.gradeA)} Grade A  ${mark(challenges.streak10)} 10 Streak  ${mark(challenges.overdriveControl)} Overdrive Control`;
   }
 }

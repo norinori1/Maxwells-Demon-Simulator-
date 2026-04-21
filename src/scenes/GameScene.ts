@@ -7,6 +7,8 @@ import {
   PARTITION_X, HOLE_SIZE,
   BALL_COUNT, TIME_LIMIT,
   BALL_RADIUS, COLOR_GRID,
+  ACTION_PROFILE, ONBOARDING_ASSIST_SEC, ONBOARDING_AUTOVALVE_SEC,
+  TELEGRAPH_WINDOW_MIN_SEC, TELEGRAPH_WINDOW_MAX_SEC,
 } from '../config';
 
 function tryPlay(scene: Phaser.Scene, key: string, config?: Phaser.Types.Sound.SoundConfig) {
@@ -34,6 +36,14 @@ export class GameScene extends Phaser.Scene {
   private maxStreak = 0;
   private valveStreamLeft?: Phaser.GameObjects.Particles.ParticleEmitter;
   private valveStreamRight?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private score = 0;
+  private overdriveSecLeft = 0;
+  private overdriveCooldownSecLeft = 0;
+  private overdriveUsage = 0;
+  private missionTriggersSec = [20, 40, 55];
+  private missionStates = [false, false, false];
+  private firstSuccessSec: number | null = null;
+  private guidanceText = '';
 
   constructor() {
     super({ key: 'GameScene' });
@@ -51,6 +61,13 @@ export class GameScene extends Phaser.Scene {
     this.coldSorted = 0;
     this.currentStreak = 0;
     this.maxStreak = 0;
+    this.score = 0;
+    this.overdriveSecLeft = 0;
+    this.overdriveCooldownSecLeft = 0;
+    this.overdriveUsage = 0;
+    this.missionStates = [false, false, false];
+    this.firstSuccessSec = null;
+    this.guidanceText = '';
 
     // dot grid background
     const grid = this.add.graphics().setDepth(-1);
@@ -113,6 +130,11 @@ export class GameScene extends Phaser.Scene {
     const playH = GAME_H - UI_H;
     const margin = BALL_RADIUS + 4;
 
+    const guidedHotY = playH * 0.5 - 24;
+    const guidedColdY = playH * 0.5 + 24;
+    this.balls.push(new Ball(this, PARTITION_X - 38, guidedHotY, 'hot', { vx: 150, vy: 20 }));
+    this.balls.push(new Ball(this, PARTITION_X + 38, guidedColdY, 'cold', { vx: -150, vy: -20 }));
+
     for (let i = 0; i < BALL_COUNT; i++) {
       const hotSide = Math.random() < 0.5 ? 'left' : 'right';
       const hx = hotSide === 'left'
@@ -134,17 +156,26 @@ export class GameScene extends Phaser.Scene {
     if (!this.isPlaying) return;
     const dt = delta / 1000;
     this.timeLeft -= dt;
+    this.overdriveSecLeft = Math.max(0, this.overdriveSecLeft - dt);
+    this.overdriveCooldownSecLeft = Math.max(0, this.overdriveCooldownSecLeft - dt);
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;
       this.endGame();
       return;
     }
 
-    const holeOpen = this.pointer.isDown;
+    if (this.isOverdriveTrigger()) {
+      this.activateOverdrive();
+    }
+
+    const elapsedSec = TIME_LIMIT - this.timeLeft;
+    const assistAutoValve = elapsedSec <= ONBOARDING_AUTOVALVE_SEC;
+    const holeOpen = this.pointer.isDown || assistAutoValve;
+    const holeSize = this.getCurrentHoleSize(elapsedSec);
     const holeY = Phaser.Math.Clamp(
       this.pointer.y,
-      HOLE_SIZE / 2,
-      GAME_H - UI_H - HOLE_SIZE / 2,
+      holeSize / 2,
+      GAME_H - UI_H - holeSize / 2,
     );
 
     // valve SFX + particle burst on open/close edges
@@ -192,18 +223,34 @@ export class GameScene extends Phaser.Scene {
       if (this.valveStreamRight?.on) this.valveStreamRight.stop();
     }
 
-    this.partition.update(holeOpen, holeY);
+    this.partition.update(holeOpen, holeY, holeSize);
     const speedMult = this.timeLeft < 15 ? 1.4 : this.timeLeft < 30 ? 1.2 : 1.0;
+    let maxThreat = 0;
     for (const ball of this.balls) {
       ball.setSpeedMultiplier(speedMult);
-      ball.update(dt, holeOpen, holeY);
+      ball.updateWithHoleSize(dt, holeOpen, holeY, holeSize);
+      const threat = ball.getWrongPassThreat(
+        holeOpen,
+        holeY,
+        holeSize,
+        TELEGRAPH_WINDOW_MIN_SEC,
+        TELEGRAPH_WINDOW_MAX_SEC,
+      );
+      ball.setThreatVisual(threat);
+      maxThreat = Math.max(maxThreat, threat);
     }
 
     // pass-through flash + SFX
     for (const ball of this.balls) {
       if (ball.justPassed) {
         const correct = ball.isCorrectSide();
+        const actionProfile = this.overdriveSecLeft > 0 ? ACTION_PROFILE.overdrive : ACTION_PROFILE.normal;
+        const scoreDelta = correct ? actionProfile.scoreReward : actionProfile.scorePenalty;
+        this.score += scoreDelta;
         if (correct) {
+          if (this.firstSuccessSec === null) {
+            this.firstSuccessSec = elapsedSec;
+          }
           this.currentStreak++;
           this.maxStreak = Math.max(this.maxStreak, this.currentStreak);
           this.hud.showStreak(this.currentStreak);
@@ -230,6 +277,7 @@ export class GameScene extends Phaser.Scene {
           color: correct ? '#00FF88' : '#FF3333',
           fontFamily: 'monospace',
         }).setOrigin(0.5).setDepth(5);
+        floatLabel.setText(scoreDelta > 0 ? `+${scoreDelta}` : `${scoreDelta}`);
         this.tweens.add({
           targets: floatLabel,
           y: ball.y - 38,
@@ -285,7 +333,28 @@ export class GameScene extends Phaser.Scene {
     const { cold, hot } = this.countSorted();
     this.coldSorted = cold;
     this.hotSorted = hot;
-    this.hud.update(this.timeLeft, cold, hot, this.balls.length, holeOpen);
+    const sorted = cold + hot;
+    const accuracy = this.balls.length > 0 ? sorted / this.balls.length : 0;
+    this.guidanceText = maxThreat > 0.3
+      ? '危険予兆: このまま開放で誤仕分け'
+      : this.overdriveSecLeft > 0
+        ? 'OVERDRIVE中: 高報酬だがミスで大減点'
+        : this.timeLeft > 45
+          ? '序盤: 正解1回を優先'
+          : '精度とスコアの両立を狙う';
+    this.updateMissions(elapsedSec, sorted, accuracy);
+    this.hud.update(
+      this.timeLeft,
+      cold,
+      hot,
+      this.balls.length,
+      holeOpen,
+      this.score,
+      this.overdriveSecLeft,
+      this.overdriveCooldownSecLeft,
+      this.guidanceText,
+      this.missionStates,
+    );
   }
 
   private countSorted() {
@@ -328,8 +397,95 @@ export class GameScene extends Phaser.Scene {
           coldSorted: this.coldSorted,
           valveOpenMs: this.valveOpenMs,
           maxStreak: this.maxStreak,
+          score: this.score,
+          missionStates: this.missionStates,
+          firstSuccessSec: this.firstSuccessSec,
+          overdriveUsage: this.overdriveUsage,
+          challengeProgress: this.updateChallengeProgress(cold + hot, this.balls.length),
         });
       },
     });
+  }
+
+  private getCurrentHoleSize(elapsedSec: number): number {
+    const assistBonus = elapsedSec <= ONBOARDING_ASSIST_SEC ? 14 : 0;
+    const overdriveBonus = this.overdriveSecLeft > 0 ? ACTION_PROFILE.overdrive.holeSizeBonus : 0;
+    return HOLE_SIZE + assistBonus + overdriveBonus;
+  }
+
+  private isOverdriveTrigger(): boolean {
+    const rightDown = this.input.mousePointer?.rightButtonDown() ?? false;
+    const eDown = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E).isDown ?? false;
+    return (rightDown || eDown) && this.overdriveSecLeft <= 0 && this.overdriveCooldownSecLeft <= 0;
+  }
+
+  private activateOverdrive() {
+    this.overdriveSecLeft = ACTION_PROFILE.overdrive.durationSec;
+    this.overdriveCooldownSecLeft = ACTION_PROFILE.overdrive.cooldownSec;
+    this.overdriveUsage += 1;
+    tryPlay(this, 'se_warning', { volume: 0.4 });
+  }
+
+  private updateMissions(elapsedSec: number, sorted: number, accuracy: number) {
+    for (let i = 0; i < this.missionTriggersSec.length; i++) {
+      if (this.missionStates[i]) continue;
+      if (elapsedSec < this.missionTriggersSec[i]) continue;
+      let success = false;
+      if (i === 0) success = sorted >= 6;
+      if (i === 1) success = this.maxStreak >= 5;
+      if (i === 2) success = accuracy >= 0.6;
+      this.missionStates[i] = success;
+      this.showMissionToast(i + 1, success);
+    }
+  }
+
+  private showMissionToast(index: number, success: boolean) {
+    const label = this.add.text(GAME_W / 2, 78 + index * 22, success ? `MISSION ${index} COMPLETE` : `MISSION ${index} FAILED`, {
+      fontSize: '12px',
+      color: success ? '#00FF88' : '#FF6B35',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5).setDepth(12).setAlpha(0);
+    this.tweens.add({
+      targets: label,
+      alpha: { from: 1, to: 0 },
+      y: label.y - 10,
+      duration: 900,
+      onComplete: () => label.destroy(),
+    });
+  }
+
+  private updateChallengeProgress(sorted: number, total: number) {
+    const key = 'mxd_challenges_v1';
+    const accuracy = total > 0 ? Math.round((sorted / total) * 100) : 0;
+    const progress = {
+      gradeA: accuracy >= 60,
+      streak10: this.maxStreak >= 10,
+      overdriveControl: this.overdriveUsage >= 3 && accuracy >= 50,
+    };
+    let previous = { gradeA: false, streak10: false, overdriveControl: false };
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as typeof previous;
+        previous = {
+          gradeA: Boolean(parsed.gradeA),
+          streak10: Boolean(parsed.streak10),
+          overdriveControl: Boolean(parsed.overdriveControl),
+        };
+      }
+      const merged = {
+        gradeA: previous.gradeA || progress.gradeA,
+        streak10: previous.streak10 || progress.streak10,
+        overdriveControl: previous.overdriveControl || progress.overdriveControl,
+      };
+      window.localStorage.setItem(key, JSON.stringify(merged));
+      return merged;
+    } catch {
+      return {
+        gradeA: previous.gradeA || progress.gradeA,
+        streak10: previous.streak10 || progress.streak10,
+        overdriveControl: previous.overdriveControl || progress.overdriveControl,
+      };
+    }
   }
 }

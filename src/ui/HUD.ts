@@ -21,6 +21,10 @@ export class HUD {
   private valveText: Phaser.GameObjects.Text;
   private valveIcon: Phaser.GameObjects.Graphics;
   private urgencyBorder: Phaser.GameObjects.Graphics;
+  private scoreText: Phaser.GameObjects.Text;
+  private overdriveText: Phaser.GameObjects.Text;
+  private missionText: Phaser.GameObjects.Text;
+  private guidanceText: Phaser.GameObjects.Text;
   private urgencyTween: Phaser.Tweens.Tween | null = null;
   private valveTween: Phaser.Tweens.Tween | null = null;
   private timerTween: Phaser.Tweens.Tween | null = null;
@@ -125,6 +129,31 @@ export class HUD {
       fontFamily: 'monospace',
     }).setOrigin(1, 0.5);
 
+    this.scoreText = scene.add.text(20, this.uiY + 12, 'SCORE: 0', {
+      fontSize: '11px',
+      color: '#E6F1FF',
+      fontFamily: 'monospace',
+    }).setOrigin(0, 0.5);
+
+    this.overdriveText = scene.add.text(GAME_W / 2, this.uiY + 12, 'OVERDRIVE: READY', {
+      fontSize: '11px',
+      color: '#FF8C00',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5, 0.5);
+
+    this.missionText = scene.add.text(GAME_W - 20, this.uiY + 12, 'MISSION: ---', {
+      fontSize: '11px',
+      color: '#4A6FA8',
+      fontFamily: 'monospace',
+    }).setOrigin(1, 0.5);
+
+    this.guidanceText = scene.add.text(GAME_W / 2, GAME_H - UI_H - 8, '', {
+      fontSize: '11px',
+      color: '#FF8C00',
+      fontFamily: 'monospace',
+      backgroundColor: '#080D1A',
+    }).setOrigin(0.5, 1);
+
     // urgency border (residual invisible — becomes visible at low time)
     this.urgencyBorder = scene.add.graphics().setDepth(11);
     this.urgencyBorder.setAlpha(0);
@@ -138,6 +167,11 @@ export class HUD {
     hotSorted: number,
     total: number,
     holeOpen: boolean,
+    score: number,
+    overdriveSecLeft: number,
+    overdriveCooldownSecLeft: number,
+    guidance: string,
+    missionStates: boolean[],
   ) {
     const t = Math.max(0, timeLeft);
 
@@ -192,6 +226,21 @@ export class HUD {
     // counts
     this.coldCountText.setText(`COLD: ${coldSorted}`);
     this.hotCountText.setText(`HOT: ${hotSorted}`);
+    this.scoreText.setText(`SCORE: ${score}`);
+    if (overdriveSecLeft > 0) {
+      this.overdriveText.setText(`OVERDRIVE: ${overdriveSecLeft.toFixed(1)}s`);
+      this.overdriveText.setColor('#FFD700');
+    } else if (overdriveCooldownSecLeft > 0) {
+      this.overdriveText.setText(`OVERDRIVE CD: ${overdriveCooldownSecLeft.toFixed(1)}s`);
+      this.overdriveText.setColor('#4A6FA8');
+    } else {
+      this.overdriveText.setText('OVERDRIVE: READY');
+      this.overdriveText.setColor('#FF8C00');
+    }
+    const cleared = missionStates.filter(Boolean).length;
+    this.missionText.setText(`MISSION: ${cleared}/3`);
+    this.missionText.setColor(cleared === 3 ? '#00FF88' : '#4A6FA8');
+    this.guidanceText.setText(guidance);
 
     // valve indicator
     if (holeOpen) {
@@ -310,6 +359,10 @@ export class HUD {
     this.timerText.destroy();
     this.coldCountText.destroy();
     this.hotCountText.destroy();
+    this.scoreText.destroy();
+    this.overdriveText.destroy();
+    this.missionText.destroy();
+    this.guidanceText.destroy();
     this.barBg.destroy();
     this.barFill.destroy();
     this.barTicks.destroy();

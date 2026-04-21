@@ -291,9 +291,10 @@ OBJECTIVE
   Sort cold particles → LEFT chamber
 
 CONTROLS
-  HOLD    mouse / touch      open valve
-  MOVE    pointer vertical   aim aperture
-  RELEASE                    seal valve
+   HOLD    mouse / touch      open valve
+   MOVE    pointer vertical   aim aperture
+   RELEASE                    seal valve
+   TAP E / RIGHT CLICK        OVERDRIVE (high risk / high reward)
 
 TIME LIMIT   60.0 s
 GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {

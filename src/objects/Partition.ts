@@ -15,13 +15,13 @@ export class Partition {
     this.draw();
   }
 
-  update(holeOpen: boolean, holeY: number) {
+  update(holeOpen: boolean, holeY: number, holeSize = HOLE_SIZE) {
     this.holeOpen = holeOpen;
     this.holeY = holeY;
-    this.draw();
+    this.draw(holeSize);
   }
 
-  private draw() {
+  private draw(holeSize = HOLE_SIZE) {
     const wallHeight = GAME_H - UI_H;
     this.gfx.clear();
     this.gfx.fillStyle(COLOR_PARTITION);
@@ -29,8 +29,8 @@ export class Partition {
     if (!this.holeOpen) {
       this.gfx.fillRect(PARTITION_X - 3, 0, 6, wallHeight);
     } else {
-      const holeTop = this.holeY - HOLE_SIZE / 2;
-      const holeBottom = this.holeY + HOLE_SIZE / 2;
+      const holeTop = this.holeY - holeSize / 2;
+      const holeBottom = this.holeY + holeSize / 2;
       if (holeTop > 0) {
         this.gfx.fillRect(PARTITION_X - 3, 0, 6, holeTop);
       }
@@ -39,7 +39,7 @@ export class Partition {
       }
       // cyan valve bracket
       this.gfx.lineStyle(2, COLOR_HOLE);
-      this.gfx.strokeRect(PARTITION_X - 6, holeTop, 12, HOLE_SIZE);
+      this.gfx.strokeRect(PARTITION_X - 6, holeTop, 12, holeSize);
       // valve end-caps
       this.gfx.lineStyle(3, COLOR_HOLE);
       this.gfx.lineBetween(PARTITION_X - 8, holeTop, PARTITION_X + 8, holeTop);
