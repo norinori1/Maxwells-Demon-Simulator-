@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Maxwell's Demon - SE ダウンロード</title>
+<style>
+  body { font-family: sans-serif; max-width: 640px; margin: 60px auto; background: #111; color: #eee; }
+  h1 { font-size: 1.2em; color: #7cf; }
+  button { padding: 14px 28px; font-size: 1.1em; background: #2a7; color: #fff; border: none; border-radius: 6px; cursor: pointer; margin-top: 20px; }
+  button:disabled { background: #555; cursor: default; }
+  #log { margin-top: 20px; font-size: 0.9em; line-height: 1.8; }
+  .ok  { color: #6f6; }
+  .err { color: #f66; }
+  .info{ color: #aaa; }
+</style>
+</head>
+<body>
+<h1>Maxwell's Demon Simulator — SE 自動配置ツール</h1>
+<p>
+  <strong>使い方：</strong><br>
+  ① ボタンをクリック<br>
+  ② フォルダ選択ダイアログで <code>public\sounds</code> フォルダを選択<br>
+  ③ 完了ログを確認
+</p>
+
+<button id="btn" onclick="run()">📁 フォルダを選択して SE を配置する</button>
+<div id="log"></div>
+
+<script>
+const FILES = [
+  {
+    url: 'https://soundeffect-lab.info/sound/machine/mp3/giant-shutter1.mp3',
+    name: 'se_valve_open.mp3',
+    label: '巨大シャッターが開く → se_valve_open.mp3'
+  },
+  {
+    url: 'https://soundeffect-lab.info/sound/machine/mp3/lever1.mp3',
+    name: 'se_valve_close.mp3',
+    label: 'レバーを倒す → se_valve_close.mp3'
+  },
+  {
+    url: 'https://soundeffect-lab.info/sound/button/mp3/cursor3.mp3',
+    name: 'se_ball_pass.mp3',
+    label: 'カーソル移動3(ピッ) → se_ball_pass.mp3'
+  },
+  {
+    url: 'https://soundeffect-lab.info/sound/button/mp3/warning1.mp3',
+    name: 'se_warning.mp3',
+    label: '警告音1 → se_warning.mp3'
+  }
+];
+
+function log(msg, cls = 'info') {
+  const div = document.getElementById('log');
+  div.innerHTML += `<div class="${cls}">${msg}</div>`;
+}
+
+async function run() {
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  document.getElementById('log').innerHTML = '';
+
+  // フォルダ選択
+  let dirHandle;
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+  } catch (e) {
+    log('❌ フォルダ選択がキャンセルされました', 'err');
+    btn.disabled = false;
+    return;
+  }
+
+  log(`📂 選択フォルダ: ${dirHandle.name}`);
+
+  let ok = 0, err = 0;
+  for (const f of FILES) {
+    log(`⬇ フェッチ中: ${f.label}`);
+    try {
+      const resp = await fetch(f.url, {
+        headers: { 'Referer': 'https://soundeffect-lab.info/' }
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+
+      // ファイル書き込み
+      const fileHandle = await dirHandle.getFileHandle(f.name, { create: true });
+      const writable   = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+
+      log(`✅ ${f.name} (${(blob.size/1024).toFixed(1)} KB)`, 'ok');
+      ok++;
+    } catch (e) {
+      log(`❌ ${f.name}: ${e.message}`, 'err');
+      err++;
+    }
+  }
+
+  log('');
+  log(`完了: ${ok} 件成功 / ${err} 件失敗`, ok === FILES.length ? 'ok' : 'err');
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
