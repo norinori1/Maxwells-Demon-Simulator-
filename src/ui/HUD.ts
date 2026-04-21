@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import { GAME_W, GAME_H, UI_H } from '../config';
 
 const BAR_X = 200;
-const BAR_Y = GAME_H - UI_H + 24;
+const BAR_Y = GAME_H - UI_H + 8;   // 384 — UI帯内に完全移動
 const BAR_W = GAME_W - 400;
-const BAR_H = 10;
+const BAR_H = 8;
 
 export class HUD {
   private scene: Phaser.Scene;
@@ -16,13 +16,10 @@ export class HUD {
   private barFill: Phaser.GameObjects.Graphics;
   private barTicks: Phaser.GameObjects.Graphics;
   private barGradeLabels: Phaser.GameObjects.Text[] = [];
-  private barLabel: Phaser.GameObjects.Text;
   private coldLabel: Phaser.GameObjects.Text;
   private hotLabel: Phaser.GameObjects.Text;
   private valveText: Phaser.GameObjects.Text;
   private valveIcon: Phaser.GameObjects.Graphics;
-  private coldBar: Phaser.GameObjects.Graphics;
-  private hotBar: Phaser.GameObjects.Graphics;
   private urgencyBorder: Phaser.GameObjects.Graphics;
   private urgencyTween: Phaser.Tweens.Tween | null = null;
   private valveTween: Phaser.Tweens.Tween | null = null;
@@ -38,7 +35,9 @@ export class HUD {
     line.lineStyle(1, 0x1C2E44);
     line.lineBetween(0, this.uiY, GAME_W, this.uiY);
 
-    // chamber labels (top)
+    // ── TOP BAND (y=0-20): chamber labels + valve ──
+
+    // chamber labels
     this.coldLabel = scene.add.text(GAME_W * 0.25, 8, '← COLD', {
       fontSize: '13px',
       color: '#00BFFF',
@@ -51,43 +50,15 @@ export class HUD {
       fontFamily: 'monospace',
     }).setOrigin(0.5, 0);
 
-    // valve indicator (moved to avoid timer overlap)
-    this.valveText = scene.add.text(GAME_W / 2 - 60, 8, '◈ VALVE: STANDBY', {
-      fontSize: '10px',
+    // valve indicator — center, same size as chamber labels
+    this.valveText = scene.add.text(GAME_W / 2, 8, '◈ VALVE: STANDBY', {
+      fontSize: '13px',
       color: '#4A6FA8',
       fontFamily: 'monospace',
-    }).setOrigin(1, 0);
+    }).setOrigin(0.5, 0);
     this.valveIcon = scene.add.graphics();
 
-    // large timer with ring frame
-    this.timerRing = scene.add.graphics();
-    this.timerRing.lineStyle(2, 0x1E3A5F, 1);
-    this.timerRing.strokeCircle(GAME_W / 2, this.uiY + 22, 20);
-
-    this.timerText = scene.add.text(GAME_W / 2, this.uiY + 22, '60', {
-      fontSize: '22px',
-      color: '#FFFFFF',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5);
-
-    // cold count
-    this.coldCountText = scene.add.text(20, this.uiY + 8, 'COLD: 0', {
-      fontSize: '13px',
-      color: '#00BFFF',
-      fontFamily: 'monospace',
-    }).setOrigin(0, 0);
-
-    // hot count
-    this.hotCountText = scene.add.text(GAME_W - 20, this.uiY + 8, 'HOT: 0', {
-      fontSize: '13px',
-      color: '#FF6B35',
-      fontFamily: 'monospace',
-    }).setOrigin(1, 0);
-
-    // small progress bars under counters
-    this.coldBar = scene.add.graphics();
-    this.hotBar = scene.add.graphics();
+    // ── UI BAR (y=376-420): grade bar + timer row ──
 
     // entropy bar bg
     this.barBg = scene.add.graphics();
@@ -96,7 +67,7 @@ export class HUD {
 
     this.barFill = scene.add.graphics();
 
-    // static tick marks on bar
+    // tick marks
     this.barTicks = scene.add.graphics();
     this.barTicks.lineStyle(1, 0x0E1A2E, 0.8);
     for (let i = 1; i < 10; i++) {
@@ -104,7 +75,7 @@ export class HUD {
       this.barTicks.lineBetween(tx, BAR_Y, tx, BAR_Y + BAR_H);
     }
 
-    // grade threshold markers (40 / 60 / 80%)
+    // grade threshold markers — now sit just inside UI bar top
     const gradeMarkers = [
       { pct: 0.40, label: 'C', color: '#4A6FA8' },
       { pct: 0.60, label: 'B', color: '#00BFFF' },
@@ -114,14 +85,14 @@ export class HUD {
     for (const m of gradeMarkers) {
       const mx = BAR_X + BAR_W * m.pct;
       this.barTicks.lineBetween(mx, BAR_Y - 4, mx, BAR_Y + BAR_H + 4);
-      const label = scene.add.text(mx, BAR_Y - 10, m.label, {
+      const label = scene.add.text(mx, BAR_Y - 4, m.label, {
         fontSize: '9px',
         color: m.color,
         fontFamily: 'monospace',
       }).setOrigin(0.5, 1);
       this.barGradeLabels.push(label);
     }
-    const sLabel = scene.add.text(BAR_X + BAR_W, BAR_Y - 10, 'S', {
+    const sLabel = scene.add.text(BAR_X + BAR_W, BAR_Y - 4, 'S', {
       fontSize: '10px',
       color: '#FFD700',
       fontFamily: 'monospace',
@@ -129,12 +100,32 @@ export class HUD {
     }).setOrigin(0.5, 1);
     this.barGradeLabels.push(sLabel);
 
-    this.barLabel = scene.add.text(BAR_X + BAR_W / 2, BAR_Y + BAR_H / 2, '0%', {
-      fontSize: '10px',
-      color: '#00E5CC',
+    // large timer + ring — bottom row of UI bar
+    this.timerRing = scene.add.graphics();
+    this.timerRing.lineStyle(2, 0x1E3A5F, 1);
+    this.timerRing.strokeCircle(GAME_W / 2, this.uiY + 32, 20);
+
+    this.timerText = scene.add.text(GAME_W / 2, this.uiY + 32, '60', {
+      fontSize: '22px',
+      color: '#FFFFFF',
       fontFamily: 'monospace',
+      fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
+    // COLD / HOT counts — same row as timer
+    this.coldCountText = scene.add.text(20, this.uiY + 30, 'COLD: 0', {
+      fontSize: '13px',
+      color: '#00BFFF',
+      fontFamily: 'monospace',
+    }).setOrigin(0, 0.5);
+
+    this.hotCountText = scene.add.text(GAME_W - 20, this.uiY + 30, 'HOT: 0', {
+      fontSize: '13px',
+      color: '#FF6B35',
+      fontFamily: 'monospace',
+    }).setOrigin(1, 0.5);
+
+    // urgency border (residual invisible — becomes visible at low time)
     this.urgencyBorder = scene.add.graphics().setDepth(11);
     this.urgencyBorder.setAlpha(0);
     this.drawUrgencyBorder();
@@ -155,7 +146,7 @@ export class HUD {
       this.timerText.setColor('#FF3333');
       this.timerRing.clear();
       this.timerRing.lineStyle(2, 0xFF3333, 1);
-      this.timerRing.strokeCircle(GAME_W / 2, this.uiY + 22, 20);
+      this.timerRing.strokeCircle(GAME_W / 2, this.uiY + 32, 20);
       if (!this.timerTween) {
         this.timerTween = this.scene.tweens.add({
           targets: this.timerText,
@@ -169,7 +160,7 @@ export class HUD {
       this.timerText.setColor('#FF8C00');
       this.timerRing.clear();
       this.timerRing.lineStyle(2, 0x1E3A5F, 1);
-      this.timerRing.strokeCircle(GAME_W / 2, this.uiY + 22, 20);
+      this.timerRing.strokeCircle(GAME_W / 2, this.uiY + 32, 20);
       if (this.timerTween) {
         this.timerTween.stop();
         this.timerTween = null;
@@ -179,7 +170,7 @@ export class HUD {
       this.timerText.setColor('#FFFFFF');
       this.timerRing.clear();
       this.timerRing.lineStyle(2, 0x1E3A5F, 1);
-      this.timerRing.strokeCircle(GAME_W / 2, this.uiY + 22, 20);
+      this.timerRing.strokeCircle(GAME_W / 2, this.uiY + 32, 20);
       if (this.timerTween) {
         this.timerTween.stop();
         this.timerTween = null;
@@ -187,6 +178,7 @@ export class HUD {
       }
     }
     this.timerText.setText(Math.ceil(t).toString());
+
     if (t <= 10 && !this.urgencyTween) {
       this.urgencyTween = this.scene.tweens.add({
         targets: this.urgencyBorder,
@@ -201,17 +193,7 @@ export class HUD {
     this.coldCountText.setText(`COLD: ${coldSorted}`);
     this.hotCountText.setText(`HOT: ${hotSorted}`);
 
-    // small counter bars
-    const half = Math.max(1, total / 2);
-    this.coldBar.clear();
-    this.coldBar.fillStyle(0x00BFFF);
-    this.coldBar.fillRect(20, this.uiY + 36, Math.min(1, coldSorted / half) * 50, 3);
-
-    this.hotBar.clear();
-    this.hotBar.fillStyle(0xFF6B35);
-    this.hotBar.fillRect(GAME_W - 70, this.uiY + 36, Math.min(1, hotSorted / half) * 50, 3);
-
-    // valve indicator tween
+    // valve indicator
     if (holeOpen) {
       this.drawValveIcon(true);
       if (!this.valveTween) {
@@ -236,22 +218,20 @@ export class HUD {
       this.valveText.setColor('#4A6FA8');
     }
 
-    // entropy bar
+    // entropy bar with grade-aware fill color
     const sorted = coldSorted + hotSorted;
     const pct = total > 0 ? sorted / total : 0;
     const fillColor = pct >= 0.80 ? 0xFFD700 : pct >= 0.60 ? 0x00E5CC : pct >= 0.40 ? 0x00BFFF : 0x4A6FA8;
     this.barFill.clear();
     this.barFill.fillStyle(fillColor);
     this.barFill.fillRect(BAR_X, BAR_Y, BAR_W * pct, BAR_H);
-    this.barLabel.setText(`${Math.round(pct * 100)}%`);
   }
 
   private drawValveIcon(open: boolean) {
     this.valveIcon.clear();
     const cx = GAME_W / 2;
-    const cy = 8;
+    const cy = 22;
     if (open) {
-      // open: chevrons
       this.valveIcon.lineStyle(2, 0x00E5CC, 1);
       this.valveIcon.beginPath();
       this.valveIcon.moveTo(cx - 14, cy + 2);
@@ -262,7 +242,6 @@ export class HUD {
       this.valveIcon.lineTo(cx + 14, cy + 14);
       this.valveIcon.strokePath();
     } else {
-      // closed: two shutters
       this.valveIcon.lineStyle(2, 0x4A6FA8, 1);
       this.valveIcon.lineBetween(cx - 6, cy + 2, cx - 6, cy + 14);
       this.valveIcon.lineBetween(cx + 6, cy + 2, cx + 6, cy + 14);
@@ -334,13 +313,10 @@ export class HUD {
     this.barBg.destroy();
     this.barFill.destroy();
     this.barTicks.destroy();
-    this.barLabel.destroy();
     this.coldLabel.destroy();
     this.hotLabel.destroy();
     this.valveText.destroy();
     this.valveIcon.destroy();
-    this.coldBar.destroy();
-    this.hotBar.destroy();
     this.urgencyBorder.destroy();
     for (const label of this.barGradeLabels) {
       label.destroy();

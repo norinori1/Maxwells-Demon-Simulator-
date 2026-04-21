@@ -3,7 +3,8 @@
     "allow": [
       "Bash(rtk git *)",
       "Bash(rtk ls *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(rtk tsc *)"
     ]
   }
 }
