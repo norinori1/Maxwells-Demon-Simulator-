@@ -1,6 +1,8 @@
 // Title screen scene with boot animation, launch controls, and briefing overlay.
 import Phaser from 'phaser';
 import { GAME_W, GAME_H, COLOR_BG, COLOR_HOLE, COLOR_PANEL_BORDER } from '../config';
+import { bindVisibilityBgm, playAudio, startLoopingBgm } from '../runtime/audio';
+import { getPlayablesConfig } from '../runtime/playables';
 
 const TEXT_PRIMARY = '#E6F1FF';
 const TEXT_SECONDARY = '#4A6FA8';
@@ -14,12 +16,6 @@ const CTA_W = 220;
 const CTA_H = 36;
 const CTA2_H = 32;
 type AlphaTarget = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.AlphaSingle;
-
-function tryPlay(scene: Phaser.Scene, key: string, config?: Phaser.Types.Sound.SoundConfig) {
-  if (scene.cache.audio.has(key)) {
-    scene.sound.play(key, config);
-  }
-}
 
 export class TitleScene extends Phaser.Scene {
   private isBootComplete = false;
@@ -48,6 +44,8 @@ export class TitleScene extends Phaser.Scene {
 
   private briefingLayer!: Phaser.GameObjects.Container;
   private creditsLayer!: Phaser.GameObjects.Container;
+  private bgm?: Phaser.Sound.BaseSound;
+  private sfxRateLimitMs = 0;
 
   constructor() {
     super({ key: 'TitleScene' });
@@ -55,7 +53,9 @@ export class TitleScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor(COLOR_BG);
+    this.sfxRateLimitMs = getPlayablesConfig(this).sfxRateLimitMs;
     this.tryPlayTitleBgm();
+    bindVisibilityBgm(this, () => this.bgm);
 
     this.buildBaseLayout();
     this.buildBriefingOverlay();
@@ -65,9 +65,9 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private tryPlayTitleBgm() {
-    if (this.cache.audio.has('bgm_title')) {
-      this.sound.add('bgm_title', { loop: true, volume: 0.4 }).play();
-    }
+    startLoopingBgm(this, 'bgm_title', { loop: true, volume: 0.4 }, (bgm) => {
+      this.bgm = bgm;
+    });
   }
 
   private buildBaseLayout() {
@@ -249,7 +249,7 @@ export class TitleScene extends Phaser.Scene {
     const zone = this.add.zone(cx, y, w, h).setInteractive({ useHandCursor: true });
     zone.on('pointerover', () => {
       drawBtn(true);
-      tryPlay(this, 'se_valve_open', { volume: 0.3 });
+      playAudio(this, 'se_valve_open', { volume: 0.3 }, { rateLimitMs: this.sfxRateLimitMs });
     });
     zone.on('pointerout', () => {
       drawBtn(false);
@@ -261,7 +261,7 @@ export class TitleScene extends Phaser.Scene {
         return;
       }
       onClick();
-      tryPlay(this, 'se_valve_close', { volume: 0.6 });
+      playAudio(this, 'se_valve_close', { volume: 0.6 }, { rateLimitMs: this.sfxRateLimitMs });
     });
 
     this.titleElements.push(btnBg, btnText);
@@ -476,7 +476,7 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
     this.isBriefingOpen = true;
     this.briefingLayer.setVisible(true).setAlpha(0);
     this.tween(this.briefingLayer, { alpha: 1 }, 180);
-    tryPlay(this, 'se_valve_open', { volume: 0.3 });
+    playAudio(this, 'se_valve_open', { volume: 0.3 }, { rateLimitMs: this.sfxRateLimitMs });
   }
 
   private hideBriefingOverlay() {
@@ -485,7 +485,7 @@ GRADES       S ≥80%   A ≥60%   B ≥40%   C <40%`, {
     this.tween(this.briefingLayer, { alpha: 0 }, 160, 0, 0, false, () => {
       this.briefingLayer.setVisible(false);
     });
-    tryPlay(this, 'se_valve_close', { volume: 0.6 });
+    playAudio(this, 'se_valve_close', { volume: 0.6 }, { rateLimitMs: this.sfxRateLimitMs });
   }
 
   private buildCreditsOverlay() {
@@ -561,7 +561,7 @@ AUDIO
     this.isCreditsOpen = true;
     this.creditsLayer.setVisible(true).setAlpha(0);
     this.tween(this.creditsLayer, { alpha: 1 }, 180);
-    tryPlay(this, 'se_valve_open', { volume: 0.3 });
+    playAudio(this, 'se_valve_open', { volume: 0.3 }, { rateLimitMs: this.sfxRateLimitMs });
   }
 
   private hideCreditsOverlay() {
@@ -570,13 +570,14 @@ AUDIO
     this.tween(this.creditsLayer, { alpha: 0 }, 160, 0, 0, false, () => {
       this.creditsLayer.setVisible(false);
     });
-    tryPlay(this, 'se_valve_close', { volume: 0.6 });
+    playAudio(this, 'se_valve_close', { volume: 0.6 }, { rateLimitMs: this.sfxRateLimitMs });
   }
 
   private startRun() {
     if (!this.isBootComplete || this.isTransitioning || this.isBriefingOpen || this.isCreditsOpen) return;
     this.isTransitioning = true;
     this.input.enabled = false;
+    this.bgm?.stop();
     this.sound.stopAll();
     this.scene.start('GameScene');
   }

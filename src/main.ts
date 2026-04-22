@@ -4,6 +4,7 @@ import { TitleScene } from './scenes/TitleScene';
 import { GameScene } from './scenes/GameScene';
 import { ResultScene } from './scenes/ResultScene';
 import { GAME_W, GAME_H, COLOR_BG } from './config';
+import { PLAYABLES_CONFIG, registerPlayablesConfig } from './runtime/playables';
 
 const MOBILE_BREAKPOINT = 768;
 const MOBILE_RESERVED_HEIGHT = 190;
@@ -56,6 +57,11 @@ const config: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [PreloadScene, TitleScene, GameScene, ResultScene],
+  callbacks: {
+    postBoot: (game) => {
+      registerPlayablesConfig(game, PLAYABLES_CONFIG);
+    },
+  },
 };
 
 new Phaser.Game(config);

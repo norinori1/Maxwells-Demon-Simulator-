@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { preloadOptionalAudio } from '../runtime/audio';
+import { getPlayablesConfig } from '../runtime/playables';
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -13,18 +15,12 @@ export class PreloadScene extends Phaser.Scene {
     g.generateTexture('particle', 4, 4);
     g.destroy();
 
-    // audio — gracefully skip missing files
-    const tryLoad = (key: string, path: string) => {
-      this.load.once(`filecomplete-audio-${key}`, () => {});
-      this.load.audio(key, path);
-    };
-    tryLoad('bgm_game',        'sounds/bgm_game.ogg');
-    tryLoad('bgm_title',       'sounds/bgm_title.ogg');
-    tryLoad('bgm_result',      'sounds/bgm_result.ogg');
-    tryLoad('se_valve_open',   'sounds/se_valve_open.mp3');
-    tryLoad('se_valve_close',  'sounds/se_valve_close.mp3');
-    tryLoad('se_ball_pass',    'sounds/se_ball_pass.mp3');
-    tryLoad('se_warning',      'sounds/se_warning.mp3');
+    const playables = getPlayablesConfig(this);
+    if (playables.preloadAudioOnBoot) {
+      preloadOptionalAudio(this);
+    } else {
+      preloadOptionalAudio(this, ['bgm_title', 'se_valve_open', 'se_valve_close']);
+    }
   }
 
   create() {
