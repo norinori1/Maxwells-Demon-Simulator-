@@ -1,6 +1,8 @@
 // Result screen scene that renders the run report, telemetry, and restart/title actions.
 import Phaser from 'phaser';
 import { GAME_W, GAME_H, COLOR_AMBER } from '../config';
+import { bindVisibilityBgm, playAudio, startLoopingBgm } from '../runtime/audio';
+import { getPlayablesConfig } from '../runtime/playables';
 
 const BEST_KEY = 'mxd_best_pct';
 const PANEL_FILL = 0x0E1A2E;
@@ -41,23 +43,20 @@ function getGrade(pct: number): GradeInfo {
   return { grade: 'C', color: '#FF6B35', desc: '改善の余地あり' };
 }
 
-function tryPlay(scene: Phaser.Scene, key: string, config?: Phaser.Types.Sound.SoundConfig) {
-  if (scene.cache.audio.has(key)) {
-    scene.sound.play(key, config);
-  }
-}
-
 export class ResultScene extends Phaser.Scene {
   private allTweens: Phaser.Tweens.Tween[] = [];
   private isComplete = false;
   private isTransitioning = false;
   private inputUnlockAt = Number.POSITIVE_INFINITY;
+  private bgm?: Phaser.Sound.BaseSound;
+  private sfxRateLimitMs = 0;
 
   constructor() {
     super({ key: 'ResultScene' });
   }
 
   create(data: ResultData) {
+    this.sfxRateLimitMs = getPlayablesConfig(this).sfxRateLimitMs;
     const sorted = data.sorted ?? 0;
     const total = data.total ?? 0;
     const hotSorted = data.hotSorted ?? 0;
@@ -76,9 +75,10 @@ export class ResultScene extends Phaser.Scene {
     const cx = GAME_W / 2;
     const cy = GAME_H / 2;
 
-    if (this.cache.audio.has('bgm_result')) {
-      this.sound.add('bgm_result', { loop: true, volume: 0.45 }).play();
-    }
+    startLoopingBgm(this, 'bgm_result', { loop: true, volume: 0.45 }, (bgm) => {
+      this.bgm = bgm;
+    });
+    bindVisibilityBgm(this, () => this.bgm);
 
     const previousBest = Math.max(data.bestPct ?? 0, this.loadBest());
     const isNewBest = pct > previousBest;
@@ -239,7 +239,7 @@ export class ResultScene extends Phaser.Scene {
 
     this.tween(gradeText, { alpha: 1, scaleX: 1.2, scaleY: 1.2 }, 250, 400, 0, false, () => {
       this.tween(gradeText, { scaleX: 1, scaleY: 1 }, 150);
-      tryPlay(this, 'se_valve_close', { volume: 0.7 });
+      playAudio(this, 'se_valve_close', { volume: 0.7 }, { rateLimitMs: this.sfxRateLimitMs });
     });
     if (grade === 'S') {
       this.tween(sDiamond, { alpha: 0.15 }, 250, 400, 0, false, () => {
@@ -256,7 +256,7 @@ export class ResultScene extends Phaser.Scene {
       accuracyBar.fillRect(barX, barY, barW * ratio, barH);
       accuracyLabel.setText(`SORT ACCURACY  ${value}%`);
     }, () => {
-      tryPlay(this, 'se_ball_pass', { volume: 0.4 });
+      playAudio(this, 'se_ball_pass', { volume: 0.4 }, { rateLimitMs: this.sfxRateLimitMs });
     });
 
     this.tween(statusText, { alpha: 1 }, 200, 800);
@@ -286,7 +286,7 @@ export class ResultScene extends Phaser.Scene {
       this.isComplete = true;
       this.inputUnlockAt = this.time.now;
       if (isNewBest) {
-        tryPlay(this, 'se_warning', { volume: 0.5 });
+        playAudio(this, 'se_warning', { volume: 0.5 }, { rateLimitMs: this.sfxRateLimitMs });
         this.tween(bestText, { alpha: 0.2 }, 200, 0, 1, true);
       }
     });
@@ -399,6 +399,7 @@ export class ResultScene extends Phaser.Scene {
     if (!this.isComplete || this.isTransitioning) return;
     if (this.time.now < this.inputUnlockAt) return;
     this.isTransitioning = true;
+    this.bgm?.stop();
     this.sound.stopAll();
     this.scene.start('GameScene');
   }
@@ -407,6 +408,7 @@ export class ResultScene extends Phaser.Scene {
     if (!this.isComplete || this.isTransitioning) return;
     if (this.time.now < this.inputUnlockAt) return;
     this.isTransitioning = true;
+    this.bgm?.stop();
     this.sound.stopAll();
     this.scene.start('TitleScene');
   }
